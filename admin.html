@@ -1,1 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Splashin Admin</title>
 
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            background: #f2f4f7;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: auto;
+            padding: 20px;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 25px;
+            color: #333;
+        }
+
+        .card {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        button {
+            padding: 12px 18px;
+            background: #4a6cf7;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px 0;
+        }
+
+        button:hover {
+            background: #3c59d4;
+        }
+
+        .player-list {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+
+        .player-list th, .player-list td {
+            padding: 12px;
+            border-bottom: 1px solid #ddd;
+            text-align: left;
+        }
+
+        .player-list th {
+            background: #e8ebf3;
+        }
+
+        .status-badge {
+            padding: 5px 10px;
+            border-radius: 6px;
+            font-size: 14px;
+            color: white;
+        }
+
+        .alive { background: #4caf50; }
+        .dead { background: #e53935; }
+
+        @media (max-width: 600px) {
+            .player-list th, .player-list td {
+                font-size: 14px;
+                padding: 8px;
+            }
+
+            button {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <h1>Admin Dashboard</h1>
+
+        <!-- Round Controls -->
+        <div class="card">
+            <h2>Round Controls</h2>
+            <button onclick="startRound()">Start Round</button>
+            <button onclick="stopRound()">Stop Round</button>
+        </div>
+
+        <!-- Target Assignment -->
+        <div class="card">
+            <h2>Assign Targets</h2>
+            <button onclick="assignTargets()">Assign Random Targets</button>
+        </div>
+
+        <!-- Reset Game -->
+        <div class="card">
+            <h2>Reset Game</h2>
+            <button onclick="resetGame()">Reset All Players</button>
+        </div>
+
+        <!-- Player List -->
+        <div class="card">
+            <h2>Players</h2>
+            <table class="player-list" id="playersTable">
+                <tr>
+                    <th>Username</th>
+                    <th>Target</th>
+                    <th>Status</th>
+                    <th>Elims</th>
+                    <th>Action</th>
+                </tr>
+            </table>
+        </div>
+    </div>
+
+    <!-- Firebase -->
+    <script type="module">
+        // 🔥 PASTE YOUR FIREBASE CONFIG HERE
+        // const firebaseConfig = { ... };
+
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { 
+            getFirestore, collection, getDocs, doc, updateDoc 
+        } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        async function loadPlayers() {
+            const table = document.getElementById("playersTable");
+            const snapshot = await getDocs(collection(db, "players"));
+
+            snapshot.forEach(playerDoc => {
+                const p = playerDoc.data();
+
+                const row = document.createElement("tr");
+
+                row.innerHTML = `
+                    <td>${p.username}</td>
+                    <td>${p.target || "-"}</td>
+                    <td>
+                        <span class="status-badge ${p.eliminated ? 'dead' : 'alive'}">
+                            ${p.eliminated ? "Eliminated" : "Alive"}
+                        </span>
+                    </td>
+                    <td>${p.elims}</td>
+                    <td>
+                        <button onclick="markEliminated('${playerDoc.id}')">Eliminate</button>
+                    </td>
+                `;
+
+                table.appendChild(row);
+            });
+        }
+
+        async function markEliminated(id) {
+            await updateDoc(doc(db, "players", id), {
+                eliminated: true
+            });
+            location.reload();
+        }
+
+        async function startRound() {
+            await updateDoc(doc(db, "game", "state"), {
+                roundActive: true
+            });
+            alert("Round started!");
+        }
+
+        async function stopRound() {
+            await updateDoc(doc(db, "game", "state"), {
+                roundActive: false
+            });
+            alert("Round stopped!");
+        }
+
+        async function resetGame() {
+            const snapshot = await getDocs(collection(db, "players"));
+            snapshot.forEach(async playerDoc => {
+                await updateDoc(doc(db, "players", playerDoc.id), {
+                    eliminated: false,
+                    elims: 0,
+                    target: ""
+                });
+            });
+
+            await updateDoc(doc(db, "game", "state"), {
+                roundActive: false,
+                winner: ""
+            });
+
+            alert("Game reset!");
+            location.reload();
+        }
+
+        async function assignTargets() {
+            const snapshot = await getDocs(collection(db, "players"));
+            const players = [];
+
+            snapshot.forEach(doc => {
+                players.push({ id: doc.id, ...doc.data() });
+            });
+
+            // Shuffle players
+            players.sort(() => Math.random() - 0.5);
+
+            // Assign circular targets
+            for (let i = 0; i < players.length; i++) {
+                const target = players[(i + 1) % players.length];
+                await updateDoc(doc(db, "players", players[i].id), {
+                    target: target.username
+                });
+            }
+
+            alert("Targets assigned!");
+            location.reload();
+        }
+
+        loadPlayers();
+    </script>
+
+</body>
+</html>
