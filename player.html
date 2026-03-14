@@ -75,6 +75,16 @@
         .silver { background: #c0c0c0; color: black; font-weight: 700; }
         .bronze { background: #cd7f32; color: black; font-weight: 700; }
 
+        /* Admin row */
+        .admin-row {
+            background: #444;
+            padding: 10px;
+            border-radius: 8px;
+            margin-top: 15px;
+            font-size: 18px;
+            text-align: center;
+        }
+
         .center-box {
             background: #1a1a1a;
             padding: 30px;
@@ -123,7 +133,20 @@
             font-size: 28px;
             font-weight: 700;
             display: none;
-            min-height: 120px;
+            min-height: 150px;
+        }
+
+        .elim-btn {
+            margin-top: 20px;
+            padding: 15px;
+            background: #4a6cf7;
+            border: none;
+            border-radius: 10px;
+            font-size: 20px;
+            font-weight: 700;
+            color: white;
+            cursor: pointer;
+            display: none;
         }
 
         .badge {
@@ -149,6 +172,39 @@
             font-size: 20px;
         }
 
+        /* Modal */
+        .modal-bg {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0,0,0,0.7);
+            display: none;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-box {
+            background: #1a1a1a;
+            padding: 30px;
+            width: 90%;
+            max-width: 400px;
+            border-radius: 14px;
+            text-align: center;
+        }
+
+        .modal-btn {
+            padding: 15px 25px;
+            border: none;
+            border-radius: 10px;
+            font-size: 20px;
+            font-weight: 700;
+            cursor: pointer;
+            margin: 10px;
+        }
+
+        .yes-btn { background: #4caf50; color: white; }
+        .no-btn { background: #e53935; color: white; }
+
         @media (max-width: 900px) {
             .layout {
                 flex-direction: column;
@@ -171,10 +227,11 @@
             <p class="side-info"><strong>Username:</strong> <span id="username">Loading...</span></p>
             <p class="side-info"><strong>Eliminations:</strong> <span id="elims">0</span></p>
 
-            <!-- LEADERBOARD -->
             <div class="leaderboard">
                 <div class="leaderboard-title">Elimination Leaderboard</div>
                 <div id="leaderboardList"></div>
+
+                <div class="admin-row">Admin: N/A</div>
             </div>
         </div>
 
@@ -188,6 +245,8 @@
             <button id="targetBtn" class="target-btn" onclick="toggleTarget()">Reveal Target</button>
 
             <div id="targetDisplay" class="target-display">Target: Loading...</div>
+
+            <button id="elimBtn" class="elim-btn" onclick="openModal()">Eliminated Target</button>
         </div>
 
         <!-- RIGHT SIDE -->
@@ -209,6 +268,15 @@
 
     </div>
 
+    <!-- MODAL -->
+    <div class="modal-bg" id="modalBg">
+        <div class="modal-box">
+            <div id="modalText" style="font-size:22px; margin-bottom:20px;">Are you sure?</div>
+            <button class="modal-btn no-btn" onclick="closeModal()">No</button>
+            <button class="modal-btn yes-btn" onclick="confirmElimination()">Yes</button>
+        </div>
+    </div>
+
     <!-- Firebase -->
     <script type="module">
         const firebaseConfig = {
@@ -221,13 +289,15 @@
         };
 
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getFirestore, doc, getDoc, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getFirestore, doc, getDoc, collection, getDocs, updateDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
         const playerId = localStorage.getItem("playerId");
         if (!playerId) window.location.href = "index.html";
+
+        let currentTargetName = "";
 
         async function loadPlayer() {
             const playerRef = doc(db, "players", playerId);
@@ -245,7 +315,8 @@
             document.getElementById("headerName").textContent = p.username + " Dashboard";
             document.getElementById("elims").textContent = p.elims;
 
-            document.getElementById("targetDisplay").textContent = "Target: " + (p.target || "Not assigned yet");
+            currentTargetName = p.target || "";
+            document.getElementById("targetDisplay").textContent = "Target: " + (currentTargetName || "Not assigned yet");
 
             const statusBadge = document.getElementById("statusBadge");
             statusBadge.textContent = p.eliminated ? "Eliminated" : "Alive";
@@ -265,7 +336,9 @@
 
             snapshot.forEach(doc => {
                 const d = doc.data();
-                players.push({ username: d.username, elims: d.elims });
+                if (d.role !== "admin") {
+                    players.push({ username: d.username, elims: d.elims });
+                }
             });
 
             players.sort((a, b) => b.elims - a.elims);
@@ -286,21 +359,54 @@
         loadPlayer();
         loadLeaderboard();
 
+        /* Reveal / Hide Target toggle */
         window.toggleTarget = function () {
             const box = document.getElementById("targetDisplay");
             const btn = document.getElementById("targetBtn");
+            const elimBtn = document.getElementById("elimBtn");
 
             if (box.style.display === "none" || box.style.display === "") {
                 box.style.display = "block";
+                elimBtn.style.display = "block";
                 btn.textContent = "Hide Target";
                 btn.style.background = "#e53935";
             } else {
                 box.style.display = "none";
+                elimBtn.style.display = "none";
                 btn.textContent = "Reveal Target";
                 btn.style.background = "#4a6cf7";
             }
         };
 
+        /* Modal controls */
+        window.openModal = function () {
+            document.getElementById("modalText").textContent =
+                `Are you sure you eliminated ${currentTargetName}?`;
+            document.getElementById("modalBg").style.display = "flex";
+        };
+
+        window.closeModal = function () {
+            document.getElementById("modalBg").style.display = "none";
+        };
+
+        window.confirmElimination = async function () {
+            if (!currentTargetName) return;
+
+            const snapshot = await getDocs(collection(db, "players"));
+            snapshot.forEach(async docSnap => {
+                const d = docSnap.data();
+                if (d.username === currentTargetName) {
+                    await updateDoc(doc(db, "players", docSnap.id), {
+                        eliminated: true
+                    });
+                }
+            });
+
+            document.getElementById("modalBg").style.display = "none";
+            alert("Target marked as eliminated.");
+        };
+
+        /* Live time */
         function updateTime() {
             const now = new Date();
             document.getElementById("timeBox").textContent =
