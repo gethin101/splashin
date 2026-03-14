@@ -10,64 +10,103 @@
             margin: 0;
             padding: 0;
             font-family: Arial, sans-serif;
-            background: #f2f4f7;
+            background: #0f0f0f;
+            color: white;
         }
 
-        .container {
-            max-width: 500px;
-            margin: auto;
+        .layout {
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            gap: 20px;
             padding: 20px;
+            flex-wrap: wrap;
         }
 
-        .card {
-            background: white;
-            padding: 25px;
-            border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-            margin-bottom: 20px;
+        /* Left + Right side strips */
+        .side-box {
+            background: #1a1a1a;
+            padding: 20px;
+            width: 260px;
+            border-radius: 14px;
+            box-shadow: 0 6px 30px rgba(0,0,0,0.4);
         }
 
-        h1, h2 {
+        .side-title {
+            font-size: 22px;
+            font-weight: 700;
+            margin-bottom: 15px;
             text-align: center;
-            color: #333;
         }
 
-        .info {
+        .side-info {
             font-size: 18px;
             margin: 10px 0;
         }
 
-        .status {
+        /* Center target box */
+        .center-box {
+            background: #1a1a1a;
+            padding: 40px;
+            width: 90%;
+            max-width: 500px;
+            border-radius: 14px;
+            text-align: center;
+            box-shadow: 0 6px 30px rgba(0,0,0,0.4);
+        }
+
+        .target-btn {
+            width: 100%;
+            padding: 18px;
+            background: #4a6cf7;
+            border: none;
+            border-radius: 12px;
+            font-size: 22px;
+            font-weight: 700;
+            color: white;
+            cursor: pointer;
+        }
+
+        .target-btn:hover {
+            background: #3c59d4;
+        }
+
+        .target-display {
+            margin-top: 25px;
+            font-size: 24px;
+            font-weight: 600;
+            display: none;
+        }
+
+        /* Status badges */
+        .badge {
             padding: 8px 12px;
             border-radius: 8px;
+            font-size: 16px;
             color: white;
             display: inline-block;
-            margin-top: 10px;
-            font-size: 16px;
+            margin-top: 5px;
         }
 
         .alive { background: #4caf50; }
         .dead { background: #e53935; }
-
-        .round {
-            padding: 8px 12px;
-            border-radius: 8px;
-            color: white;
-            display: inline-block;
-            margin-top: 10px;
-            font-size: 16px;
-        }
-
         .active { background: #4a6cf7; }
         .inactive { background: #777; }
 
-        @media (max-width: 600px) {
-            .card {
-                padding: 20px;
-            }
+        /* Time box */
+        .time-box {
+            margin-top: 15px;
+            padding: 10px;
+            background: #2a2a2a;
+            border-radius: 10px;
+            text-align: center;
+            font-size: 18px;
+        }
 
-            .info {
-                font-size: 16px;
+        @media (max-width: 900px) {
+            .layout {
+                flex-direction: column;
+                align-items: center;
             }
         }
     </style>
@@ -75,51 +114,59 @@
 
 <body>
 
-    <div class="container">
-        <h1>Player Dashboard</h1>
+    <div class="layout">
 
-        <div class="card">
-            <h2>Your Status</h2>
-            <p class="info"><strong>Username:</strong> <span id="username">Loading...</span></p>
-            <p class="info"><strong>Your Target:</strong> <span id="target">Loading...</span></p>
-            <p class="info"><strong>Eliminations:</strong> <span id="elims">0</span></p>
-
-            <p class="info">
-                <strong>Status:</strong>
-                <span id="statusBadge" class="status">Loading...</span>
-            </p>
-
-            <p class="info">
-                <strong>Round:</strong>
-                <span id="roundBadge" class="round">Loading...</span>
-            </p>
+        <!-- LEFT SIDE -->
+        <div class="side-box">
+            <div class="side-title">Player Info</div>
+            <p class="side-info"><strong>Username:</strong> <span id="username">Loading...</span></p>
+            <p class="side-info"><strong>Eliminations:</strong> <span id="elims">0</span></p>
         </div>
+
+        <!-- CENTER BOX -->
+        <div class="center-box">
+            <button class="target-btn" onclick="showTarget()">Show Target</button>
+            <div id="targetDisplay" class="target-display">Target: Loading...</div>
+        </div>
+
+        <!-- RIGHT SIDE -->
+        <div class="side-box">
+            <div class="side-title">Game Status</div>
+
+            <p class="side-info">
+                <strong>Status:</strong>
+                <span id="statusBadge" class="badge">Loading...</span>
+            </p>
+
+            <p class="side-info">
+                <strong>Round:</strong>
+                <span id="roundBadge" class="badge">Loading...</span>
+            </p>
+
+            <div class="time-box" id="timeBox">--:--:--</div>
+        </div>
+
     </div>
 
     <!-- Firebase -->
     <script type="module">
-      const firebaseConfig = {
-  apiKey: "AIzaSyBYNiqTUUJtRHLM-9KWcRkRWxvbgo1JL8M",
-  authDomain: "splashin-game.firebaseapp.com",
-  projectId: "splashin-game",
-  storageBucket: "splashin-game.firebasestorage.app",
-  messagingSenderId: "288041679813",
-  appId: "1:288041679813:web:381e2b17ff1a3779b829ac"
-};
+        const firebaseConfig = {
+          apiKey: "AIzaSyBYNiqTUUJtRHLM-9KWcRkRWxvbgo1JL8M",
+          authDomain: "splashin-game.firebaseapp.com",
+          projectId: "splashin-game",
+          storageBucket: "splashin-game.appspot.com",
+          messagingSenderId: "288041679813",
+          appId: "1:288041679813:web:381e2b17ff1a3779b829ac"
+        };
 
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { 
-            getFirestore, doc, getDoc 
-        } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
         const playerId = localStorage.getItem("playerId");
-
-        if (!playerId) {
-            window.location.href = "index.html";
-        }
+        if (!playerId) window.location.href = "index.html";
 
         async function loadPlayer() {
             const playerRef = doc(db, "players", playerId);
@@ -128,38 +175,53 @@
             const gameRef = doc(db, "game", "state");
             const gameSnap = await getDoc(gameRef);
 
-            if (!playerSnap.exists()) {
-                alert("Player not found.");
-                return;
-            }
+            if (!playerSnap.exists()) return alert("Player not found.");
 
             const p = playerSnap.data();
             const g = gameSnap.data();
 
             document.getElementById("username").textContent = p.username;
-            document.getElementById("target").textContent = p.target || "Not assigned yet";
             document.getElementById("elims").textContent = p.elims;
 
+            // Target (hidden until button pressed)
+            document.getElementById("targetDisplay").textContent = "Target: " + (p.target || "Not assigned yet");
+
+            // Status badge
             const statusBadge = document.getElementById("statusBadge");
             if (p.eliminated) {
                 statusBadge.textContent = "Eliminated";
-                statusBadge.className = "status dead";
+                statusBadge.className = "badge dead";
             } else {
                 statusBadge.textContent = "Alive";
-                statusBadge.className = "status alive";
+                statusBadge.className = "badge alive";
             }
 
+            // Round badge
             const roundBadge = document.getElementById("roundBadge");
             if (g.roundActive) {
                 roundBadge.textContent = "Active";
-                roundBadge.className = "round active";
+                roundBadge.className = "badge active";
             } else {
                 roundBadge.textContent = "Not Active";
-                roundBadge.className = "round inactive";
+                roundBadge.className = "badge inactive";
             }
         }
 
         loadPlayer();
+
+        // Show target button
+        function showTarget() {
+            document.getElementById("targetDisplay").style.display = "block";
+        }
+
+        // Live time clock
+        function updateTime() {
+            const now = new Date();
+            document.getElementById("timeBox").textContent =
+                now.toLocaleTimeString("en-GB", { hour12: false });
+        }
+        setInterval(updateTime, 1000);
+        updateTime();
     </script>
 
 </body>
