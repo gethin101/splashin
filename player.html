@@ -25,12 +25,19 @@
             padding: 15px 10px;
             font-size: 22px;
             font-weight: 800;
-            background: #4caf50;
-            color: white;
             display: none;
         }
 
-        /* GRID LAYOUT */
+        .winner-self {
+            background: #4caf50;
+            color: white;
+        }
+
+        .winner-other {
+            background: #ff9800;
+            color: black;
+        }
+
         .layout {
             display: grid;
             grid-template-columns: 260px 1fr 260px;
@@ -64,7 +71,6 @@
             margin: 15px 0;
         }
 
-        /* Leaderboard */
         .leaderboard {
             margin-top: 25px;
         }
@@ -111,7 +117,6 @@
             text-align: center;
         }
 
-        /* CENTER BOX */
         .center-box {
             background: #1a1a1a;
             padding: 30px;
@@ -175,7 +180,6 @@
             display: none;
         }
 
-        /* STATUS BADGES */
         .badge {
             padding: 8px 12px;
             border-radius: 8px;
@@ -210,7 +214,6 @@
             display: none;
         }
 
-        /* MODAL */
         .modal-bg {
             position: fixed;
             top: 0; left: 0;
@@ -250,7 +253,6 @@
             color: white;
         }
 
-        /* iPAD / MOBILE GRID LAYOUT */
         @media (max-width: 900px) {
             .layout {
                 grid-template-columns: 1fr 1fr;
@@ -282,7 +284,6 @@
     <div class="winner-banner" id="winnerBanner"></div>
 
     <div class="layout">
-        <!-- LEFT SIDE -->
         <div class="side-box left-box">
             <div class="side-title">Player Info</div>
             <p class="side-info"><strong>Username:</strong> <span id="username">Loading...</span></p>
@@ -295,7 +296,6 @@
             </div>
         </div>
 
-        <!-- CENTER -->
         <div class="center-box">
             <div class="profile-box">
                 <img src="assets/profile.png" alt="Profile">
@@ -309,7 +309,6 @@
             </div>
         </div>
 
-        <!-- RIGHT SIDE -->
         <div class="side-box right-box">
             <div class="side-title">Game Status</div>
 
@@ -331,7 +330,6 @@
         </div>
     </div>
 
-    <!-- MODAL -->
     <div class="modal-bg" id="modalBg">
         <div class="modal-box">
             <div id="modalText" style="font-size:22px; margin-bottom:20px;">Are you sure?</div>
@@ -340,7 +338,6 @@
         </div>
     </div>
 
-    <!-- FIREBASE -->
     <script type="module">
         const firebaseConfig = {
           apiKey: "AIzaSyBYNiqTUUJtRHLM-9KWcRkRWxvbgo1JL8M",
@@ -371,7 +368,6 @@
             const gameSnap = await getDoc(gameRef);
 
             if (!playerSnap.exists()) {
-                alert("Player not found.");
                 return;
             }
 
@@ -415,20 +411,20 @@
                 roundBadge.className = "badge inactive";
             }
 
-            // winner banner
             const winnerBanner = document.getElementById("winnerBanner");
             if (g.winner && g.winner !== "") {
                 if (g.winner === p.username) {
                     winnerBanner.textContent = "YOU WON THE GAME!";
+                    winnerBanner.className = "winner-banner winner-self";
                 } else {
                     winnerBanner.textContent = g.winner + " has won the game!";
+                    winnerBanner.className = "winner-banner winner-other";
                 }
                 winnerBanner.style.display = "block";
             } else {
                 winnerBanner.style.display = "none";
             }
 
-            // if eliminated or game not active, hide elim button
             const elimBtn = document.getElementById("elimBtn");
             if (p.eliminated || !roundActive || roundPause || !currentTargetName) {
                 elimBtn.style.display = "none";
@@ -472,7 +468,6 @@
             if (box.style.display === "none" || box.style.display === "") {
                 box.style.display = "block";
 
-                // only show elim button if allowed to kill
                 const canKill = currentPlayerData && !currentPlayerData.eliminated &&
                                 currentGameData && currentGameData.roundActive &&
                                 !currentGameData.roundPause &&
@@ -493,17 +488,14 @@
             if (!currentPlayerData || !currentGameData) return;
 
             if (currentPlayerData.eliminated) {
-                alert("You are eliminated and cannot eliminate anyone.");
                 return;
             }
 
             if (!currentGameData.roundActive || currentGameData.roundPause) {
-                alert("Round is not active right now.");
                 return;
             }
 
             if (!currentTargetName) {
-                alert("You don't have a target.");
                 return;
             }
 
@@ -537,16 +529,17 @@
         }
 
         window.confirmElimination = async function () {
-            if (!currentTargetName || !currentPlayerData || !currentGameData) return;
+            if (!currentTargetName || !currentPlayerData || !currentGameData) {
+                document.getElementById("modalBg").style.display = "none";
+                return;
+            }
 
             if (currentPlayerData.eliminated) {
-                alert("You are eliminated and cannot eliminate anyone.");
                 document.getElementById("modalBg").style.display = "none";
                 return;
             }
 
             if (!currentGameData.roundActive || currentGameData.roundPause) {
-                alert("Round is not active right now.");
                 document.getElementById("modalBg").style.display = "none";
                 return;
             }
@@ -565,18 +558,15 @@
             });
 
             if (!victimDocId || !victimData) {
-                alert("Target not found.");
                 document.getElementById("modalBg").style.display = "none";
                 return;
             }
 
-            // mark victim eliminated
             await updateDoc(doc(db, "players", victimDocId), {
                 eliminated: true,
                 eliminatedBy: currentPlayerData.username
             });
 
-            // killer (this player) gets victim's target and +1 elim
             const victimTarget = victimData.target || "";
             const playerRef = doc(db, "players", playerId);
             const playerSnap = await getDoc(playerRef);
@@ -596,7 +586,6 @@
                 await updateDoc(playerRef, updateData);
             }
 
-            // clear victim's target
             await updateDoc(doc(db, "players", victimDocId), {
                 target: ""
             });
@@ -604,7 +593,6 @@
             await checkWinner();
 
             document.getElementById("modalBg").style.display = "none";
-            alert("Target marked as eliminated.");
 
             await loadPlayer();
             await loadLeaderboard();
