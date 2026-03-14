@@ -93,11 +93,12 @@
 
     <!-- Firebase -->
     <script type="module">
+        // ✅ FIXED CONFIG
         const firebaseConfig = {
           apiKey: "AIzaSyBYNiqTUUJtRHLM-9KWcRkRWxvbgo1JL8M",
           authDomain: "splashin-game.firebaseapp.com",
           projectId: "splashin-game",
-          storageBucket: "splashin-game.firebasestorage.app",
+          storageBucket: "splashin-game.appspot.com",   // FIXED
           messagingSenderId: "288041679813",
           appId: "1:288041679813:web:381e2b17ff1a3779b829ac"
         };
@@ -115,28 +116,34 @@
 
             errorBox.textContent = "";
 
-            const playersRef = collection(db, "players");
-            const snapshot = await getDocs(playersRef);
+            try {
+                const playersRef = collection(db, "players");
+                const snapshot = await getDocs(playersRef);
 
-            let found = false;
+                let found = false;
 
-            snapshot.forEach(doc => {
-                const data = doc.data();
+                snapshot.forEach(doc => {
+                    const data = doc.data();
 
-                if (data.username === user && data.password === pass) {
-                    found = true;
+                    if (data.username === user && data.password === pass) {
+                        found = true;
 
-                    if (data.role === "admin") {
-                        window.location.href = "admin.html";
-                    } else {
-                        localStorage.setItem("playerId", doc.id);
-                        window.location.href = "player.html";
+                        if (data.role === "admin") {
+                            window.location.href = "admin.html";
+                        } else {
+                            localStorage.setItem("playerId", doc.id);
+                            window.location.href = "player.html";
+                        }
                     }
-                }
-            });
+                });
 
-            if (!found) {
-                errorBox.textContent = "Incorrect username or password.";
+                if (!found) {
+                    errorBox.textContent = "Incorrect username or password.";
+                }
+
+            } catch (err) {
+                console.error("Firestore error:", err);
+                errorBox.textContent = "Database error — check console.";
             }
         }
     </script>
