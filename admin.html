@@ -110,7 +110,18 @@
             background: #c62828;
         }
 
-        /* Modal (shared for all confirms + eliminate) */
+        .elim-number-btn {
+            background: #4a6cf7;
+            padding: 8px 14px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            border: none;
+            color: white;
+            font-weight: 700;
+        }
+
+        /* Modal */
         .modal-bg {
             position: fixed;
             top: 0; left: 0;
@@ -140,11 +151,27 @@
             width: 100%;
             padding: 10px;
             border-radius: 8px;
-            border: 1px solid #444;
+            border: 2px solid #444;
             background: #111;
             color: white;
             font-size: 16px;
             margin-bottom: 15px;
+        }
+
+        .modal-input.error {
+            border-color: red;
+        }
+
+        .shake {
+            animation: shake 0.3s;
+        }
+
+        @keyframes shake {
+            0% { transform: translateX(0); }
+            25% { transform: translateX(-6px); }
+            50% { transform: translateX(6px); }
+            75% { transform: translateX(-6px); }
+            100% { transform: translateX(0); }
         }
 
         .modal-btn {
@@ -189,6 +216,7 @@
             <button onclick="openConfirm('resetElims')">Reset Eliminations</button>
             <button onclick="openConfirm('resetTargets')">Reset Targets</button>
             <button onclick="openConfirm('resetStatus')">Reset Status (Alive)</button>
+            <button onclick="openConfirm('resetWinner')">Reset Winner</button>
         </div>
 
         <!-- Player List -->
@@ -210,10 +238,11 @@
 
     <!-- Modal -->
     <div class="modal-bg" id="modalBg">
-        <div class="modal-box">
+        <div class="modal-box" id="modalBox">
             <div class="modal-title" id="modalTitle">Confirm</div>
-            <div id="modalBodyText" style="margin-bottom:10px;"></div>
-            <input id="killerInput" class="modal-input" placeholder="Who eliminated them?" />
+
+            <input id="modalInput" class="modal-input" style="display:none;" />
+
             <div>
                 <button class="modal-btn modal-no" onclick="closeModal()">No</button>
                 <button class="modal-btn modal-yes" onclick="confirmModal()">Yes</button>
@@ -240,11 +269,9 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        let modalMode = null;          // "eliminate" or "confirmAction"
+        let modalMode = null;
         let modalPlayerId = null;
-        let modalPlayerName = null;
-        let modalPlayerTarget = null;
-        let pendingAction = null;      // "startRound", "pauseRound", etc.
+        let pendingAction = null;
 
         /* ---------------- LOAD PLAYERS ---------------- */
         async function loadPlayers() {
@@ -264,7 +291,6 @@
             snapshot.forEach(playerDoc => {
                 const p = playerDoc.data();
 
-                // hide admin from dashboard
                 if (p.role === "admin") return;
 
                 const row = document.createElement("tr");
@@ -275,12 +301,14 @@
                 row.innerHTML = `
                     <td>${p.username}</td>
                     <td>${p.target || "-"}</td>
+                    <td><span class="status-badge ${statusClass}">${statusText}</span></td>
+
                     <td>
-                        <span class="status-badge ${statusClass}">
-                            ${statusText}
-                        </span>
+                        <button class="elim-number-btn" onclick="openElimEditModal('${playerDoc.id}', ${p.elims})">
+                            ${p.elims}
+                        </button>
                     </td>
-                    <td>${p.elims}</td>
+
                     <td>
                         <button class="action-btn elim-btn" onclick="openElimModal('${playerDoc.id}', '${p.username}', '${p.target || ""}', ${p.eliminated})">
                             Eliminate
@@ -297,7 +325,8 @@
         async function doStartRound() {
             await setDoc(doc(db, "game", "state"), {
                 roundActive: true,
-                roundPause: false
+                roundPause: false,
+                winner: ""   // CLEAR WINNER ON NEW ROUND
             }, { merge: true });
 
             const snapshot = await getDocs(collection(db, "players"));
@@ -310,9 +339,7 @@
                 }
             });
 
-            if (players.length < 2) {
-                return;
-            }
+            if (players.length < 2) return;
 
             players.sort(() => Math.random() - 0.5);
 
@@ -330,10 +357,7 @@
             const stateRef = doc(db, "game", "state");
             const snap = await getDoc(stateRef);
             let currentPause = false;
-            if (snap.exists()) {
-                const data = snap.data();
-                currentPause = !!data.roundPause;
-            }
+            if (snap.exists()) currentPause = !!snap.data().roundPause;
 
             await setDoc(stateRef, {
                 roundPause: !currentPause
@@ -350,31 +374,22 @@
 
         async function doResetElims() {
             const snapshot = await getDocs(collection(db, "players"));
-
             for (const playerDoc of snapshot.docs) {
-                await updateDoc(doc(db, "players", playerDoc.id), {
-                    elims: 0
-                });
+                await updateDoc(doc(db, "players", playerDoc.id), { elims: 0 });
             }
-
             loadPlayers();
         }
 
         async function doResetTargets() {
             const snapshot = await getDocs(collection(db, "players"));
-
             for (const playerDoc of snapshot.docs) {
-                await updateDoc(doc(db, "players", playerDoc.id), {
-                    target: ""
-                });
+                await updateDoc(doc(db, "players", playerDoc.id), { target: "" });
             }
-
             loadPlayers();
         }
 
         async function doResetStatus() {
             const snapshot = await getDocs(collection(db, "players"));
-
             for (const playerDoc of snapshot.docs) {
                 const d = playerDoc.data();
                 if (d.role === "admin") continue;
@@ -384,8 +399,13 @@
                     target: ""
                 });
             }
-
             loadPlayers();
+        }
+
+        async function doResetWinner() {
+            await setDoc(doc(db, "game", "state"), {
+                winner: ""
+            }, { merge: true });
         }
 
         /* ---------------- WINNER CHECK ---------------- */
@@ -396,21 +416,18 @@
 
             snapshot.forEach(docSnap => {
                 const d = docSnap.data();
-                if (d.role !== "admin" && !d.eliminated) {
-                    alive.push(d.username);
-                }
+                if (d.role !== "admin" && !d.eliminated) alive.push(d.username);
             });
 
             if (alive.length === 1) {
-                const winnerName = alive[0];
                 await setDoc(doc(db, "game", "state"), {
-                    winner: winnerName,
+                    winner: alive[0],
                     roundActive: false
                 }, { merge: true });
             }
         }
 
-        /* ---------------- GENERIC CONFIRM MODAL ---------------- */
+        /* ---------------- MODALS ---------------- */
 
         window.openConfirm = async function(actionName) {
             pendingAction = actionName;
@@ -418,57 +435,55 @@
 
             const modalBg = document.getElementById("modalBg");
             const title = document.getElementById("modalTitle");
-            const bodyText = document.getElementById("modalBodyText");
-            const killerInput = document.getElementById("killerInput");
+            const input = document.getElementById("modalInput");
 
-            killerInput.style.display = "none";
-            killerInput.value = "";
+            input.style.display = "none";
+            input.value = "";
+            input.classList.remove("error");
 
-            if (actionName === "startRound") {
-                title.textContent = "Start round?";
-            } else if (actionName === "pauseRound") {
-                // need to know if currently paused or not
+            if (actionName === "startRound") title.textContent = "Start round?";
+            else if (actionName === "pauseRound") {
                 const stateRef = doc(db, "game", "state");
                 const snap = await getDoc(stateRef);
-                let currentPause = false;
-                if (snap.exists()) {
-                    const data = snap.data();
-                    currentPause = !!data.roundPause;
-                }
-                title.textContent = currentPause ? "Resume round?" : "Pause round?";
-            } else if (actionName === "stopRound") {
-                title.textContent = "Stop round?";
-            } else if (actionName === "resetElims") {
-                title.textContent = "Reset eliminations?";
-            } else if (actionName === "resetTargets") {
-                title.textContent = "Reset targets?";
-            } else if (actionName === "resetStatus") {
-                title.textContent = "Reset status?";
-            } else {
-                title.textContent = "Are you sure?";
+                let paused = snap.exists() ? !!snap.data().roundPause : false;
+                title.textContent = paused ? "Resume round?" : "Pause round?";
             }
+            else if (actionName === "stopRound") title.textContent = "Stop round?";
+            else if (actionName === "resetElims") title.textContent = "Reset eliminations?";
+            else if (actionName === "resetTargets") title.textContent = "Reset targets?";
+            else if (actionName === "resetStatus") title.textContent = "Reset status?";
+            else if (actionName === "resetWinner") title.textContent = "Reset winner?";
+            else title.textContent = "Are you sure?";
 
-            bodyText.textContent = "";
             modalBg.style.display = "flex";
         };
 
-        /* ---------------- ELIMINATE MODAL ---------------- */
-
-        window.openElimModal = function(playerId, playerName, playerTarget, isEliminated) {
+        window.openElimEditModal = function(playerId, currentElims) {
+            modalMode = "editElims";
             modalPlayerId = playerId;
-            modalPlayerName = playerName;
-            modalPlayerTarget = playerTarget || "";
-            modalMode = "eliminate";
 
             const modalBg = document.getElementById("modalBg");
             const title = document.getElementById("modalTitle");
-            const bodyText = document.getElementById("modalBodyText");
-            const killerInput = document.getElementById("killerInput");
+            const input = document.getElementById("modalInput");
+
+            title.textContent = "Change elims?";
+            input.style.display = "block";
+            input.value = currentElims;
+            input.classList.remove("error");
+
+            modalBg.style.display = "flex";
+        };
+
+        window.openElimModal = function(playerId, playerName, playerTarget, isEliminated) {
+            modalMode = "eliminate";
+            modalPlayerId = playerId;
+
+            const modalBg = document.getElementById("modalBg");
+            const title = document.getElementById("modalTitle");
+            const input = document.getElementById("modalInput");
 
             title.textContent = "Eliminate player?";
-            bodyText.textContent = `Who eliminated ${playerName}? (leave blank for Unknown)`;
-            killerInput.style.display = "block";
-            killerInput.value = "";
+            input.style.display = "none";
 
             modalBg.style.display = "flex";
         };
@@ -477,16 +492,36 @@
             document.getElementById("modalBg").style.display = "none";
             modalMode = null;
             modalPlayerId = null;
-            modalPlayerName = null;
-            modalPlayerTarget = null;
             pendingAction = null;
         };
 
         window.confirmModal = async function() {
+            const input = document.getElementById("modalInput");
+            const modalBox = document.getElementById("modalBox");
+
+            if (modalMode === "editElims") {
+                let val = input.value.trim();
+
+                if (val === "" || isNaN(val)) {
+                    input.classList.add("error");
+                    modalBox.classList.add("shake");
+                    setTimeout(() => modalBox.classList.remove("shake"), 300);
+                    return;
+                }
+
+                val = parseInt(val);
+
+                await updateDoc(doc(db, "players", modalPlayerId), { elims: val });
+
+                closeModal();
+                loadPlayers();
+                return;
+            }
+
             if (modalMode === "confirmAction" && pendingAction) {
                 const action = pendingAction;
                 pendingAction = null;
-                document.getElementById("modalBg").style.display = "none";
+                closeModal();
 
                 if (action === "startRound") await doStartRound();
                 else if (action === "pauseRound") await doPauseRound();
@@ -494,78 +529,29 @@
                 else if (action === "resetElims") await doResetElims();
                 else if (action === "resetTargets") await doResetTargets();
                 else if (action === "resetStatus") await doResetStatus();
+                else if (action === "resetWinner") await doResetWinner();
 
                 return;
             }
 
-            if (!modalPlayerId || modalMode !== "eliminate") {
-                closeModal();
-                return;
-            }
-
-            const killerInput = document.getElementById("killerInput");
-            let killerName = killerInput.value.trim();
-
-            let killerDocId = null;
-            let killerData = null;
-
-            if (killerName === "") {
-                killerName = "Unknown";
-            } else {
-                const snapshot = await getDocs(collection(db, "players"));
-                snapshot.forEach(docSnap => {
-                    const d = docSnap.data();
-                    if (d.username === killerName) {
-                        killerDocId = docSnap.id;
-                        killerData = d;
-                    }
+            if (modalMode === "eliminate") {
+                await updateDoc(doc(db, "players", modalPlayerId), {
+                    eliminated: true,
+                    eliminatedBy: "Admin"
                 });
 
-                if (!killerDocId) {
-                    alert(`No player named "${killerName}" exists.`);
-                    return;
-                }
+                await updateDoc(doc(db, "players", modalPlayerId), { target: "" });
 
-                if (killerData.role === "admin" || killerData.eliminated) {
-                    alert(`"${killerName}" cannot eliminate players.`);
-                    return;
-                }
+                await checkWinner();
+
+                closeModal();
+                loadPlayers();
+                return;
             }
-
-            await updateDoc(doc(db, "players", modalPlayerId), {
-                eliminated: true,
-                eliminatedBy: killerName
-            });
-
-            if (killerName !== "Unknown" && killerDocId) {
-                const killerRef = doc(db, "players", killerDocId);
-                const killerSnap = await getDoc(killerRef);
-                if (killerSnap.exists()) {
-                    const kd = killerSnap.data();
-                    const newElims = (kd.elims || 0) + 1;
-
-                    const updateData = { elims: newElims };
-
-                    const victimTarget = modalPlayerTarget || "";
-                    if (victimTarget && victimTarget !== modalPlayerName) {
-                        updateData.target = victimTarget;
-                    }
-
-                    await updateDoc(killerRef, updateData);
-                }
-            }
-
-            await updateDoc(doc(db, "players", modalPlayerId), {
-                target: ""
-            });
-
-            await checkWinner();
 
             closeModal();
-            loadPlayers();
         };
 
-        /* ---------------- INIT ---------------- */
         loadPlayers();
     </script>
 
