@@ -1,1 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Splashin Player</title>
 
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            background: #f2f4f7;
+        }
+
+        .container {
+            max-width: 500px;
+            margin: auto;
+            padding: 20px;
+        }
+
+        .card {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        h1, h2 {
+            text-align: center;
+            color: #333;
+        }
+
+        .info {
+            font-size: 18px;
+            margin: 10px 0;
+        }
+
+        .status {
+            padding: 8px 12px;
+            border-radius: 8px;
+            color: white;
+            display: inline-block;
+            margin-top: 10px;
+            font-size: 16px;
+        }
+
+        .alive { background: #4caf50; }
+        .dead { background: #e53935; }
+
+        .round {
+            padding: 8px 12px;
+            border-radius: 8px;
+            color: white;
+            display: inline-block;
+            margin-top: 10px;
+            font-size: 16px;
+        }
+
+        .active { background: #4a6cf7; }
+        .inactive { background: #777; }
+
+        @media (max-width: 600px) {
+            .card {
+                padding: 20px;
+            }
+
+            .info {
+                font-size: 16px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <h1>Player Dashboard</h1>
+
+        <div class="card">
+            <h2>Your Status</h2>
+            <p class="info"><strong>Username:</strong> <span id="username">Loading...</span></p>
+            <p class="info"><strong>Your Target:</strong> <span id="target">Loading...</span></p>
+            <p class="info"><strong>Eliminations:</strong> <span id="elims">0</span></p>
+
+            <p class="info">
+                <strong>Status:</strong>
+                <span id="statusBadge" class="status">Loading...</span>
+            </p>
+
+            <p class="info">
+                <strong>Round:</strong>
+                <span id="roundBadge" class="round">Loading...</span>
+            </p>
+        </div>
+    </div>
+
+    <!-- Firebase -->
+    <script type="module">
+      const firebaseConfig = {
+  apiKey: "AIzaSyBYNiqTUUJtRHLM-9KWcRkRWxvbgo1JL8M",
+  authDomain: "splashin-game.firebaseapp.com",
+  projectId: "splashin-game",
+  storageBucket: "splashin-game.firebasestorage.app",
+  messagingSenderId: "288041679813",
+  appId: "1:288041679813:web:381e2b17ff1a3779b829ac"
+};
+
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { 
+            getFirestore, doc, getDoc 
+        } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        const playerId = localStorage.getItem("playerId");
+
+        if (!playerId) {
+            window.location.href = "index.html";
+        }
+
+        async function loadPlayer() {
+            const playerRef = doc(db, "players", playerId);
+            const playerSnap = await getDoc(playerRef);
+
+            const gameRef = doc(db, "game", "state");
+            const gameSnap = await getDoc(gameRef);
+
+            if (!playerSnap.exists()) {
+                alert("Player not found.");
+                return;
+            }
+
+            const p = playerSnap.data();
+            const g = gameSnap.data();
+
+            document.getElementById("username").textContent = p.username;
+            document.getElementById("target").textContent = p.target || "Not assigned yet";
+            document.getElementById("elims").textContent = p.elims;
+
+            const statusBadge = document.getElementById("statusBadge");
+            if (p.eliminated) {
+                statusBadge.textContent = "Eliminated";
+                statusBadge.className = "status dead";
+            } else {
+                statusBadge.textContent = "Alive";
+                statusBadge.className = "status alive";
+            }
+
+            const roundBadge = document.getElementById("roundBadge");
+            if (g.roundActive) {
+                roundBadge.textContent = "Active";
+                roundBadge.className = "round active";
+            } else {
+                roundBadge.textContent = "Not Active";
+                roundBadge.className = "round inactive";
+            }
+        }
+
+        loadPlayer();
+    </script>
+
+</body>
+</html>
