@@ -93,7 +93,6 @@
         .dead { background: #e53935; }
 
         .action-btn {
-            background: #e53935;
             padding: 10px 14px;
             border-radius: 8px;
             font-size: 16px;
@@ -103,8 +102,77 @@
             font-weight: 600;
         }
 
-        .action-btn:hover {
+        .elim-btn {
+            background: #e53935;
+        }
+
+        .elim-btn:hover {
             background: #c62828;
+        }
+
+        .revive-btn {
+            background: #4a6cf7;
+        }
+
+        .revive-btn:hover {
+            background: #3c59d4;
+        }
+
+        /* Modal */
+        .modal-bg {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0,0,0,0.7);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 999;
+        }
+
+        .modal-box {
+            background: #1a1a1a;
+            padding: 25px;
+            width: 90%;
+            max-width: 420px;
+            border-radius: 14px;
+            text-align: center;
+        }
+
+        .modal-title {
+            font-size: 22px;
+            margin-bottom: 15px;
+        }
+
+        .modal-input {
+            width: 100%;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #444;
+            background: #111;
+            color: white;
+            font-size: 16px;
+            margin-bottom: 15px;
+        }
+
+        .modal-btn {
+            padding: 12px 18px;
+            border-radius: 10px;
+            border: none;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            margin: 5px;
+        }
+
+        .modal-no {
+            background: #e53935;
+            color: white;
+        }
+
+        .modal-yes {
+            background: #4caf50;
+            color: white;
         }
     </style>
 </head>
@@ -118,20 +186,16 @@
         <!-- Round Controls -->
         <div class="card">
             <h2>Round Controls</h2>
-            <button onclick="startRound()">Start Round</button>
+            <button onclick="startRound()">Start Round (assign targets)</button>
+            <button onclick="pauseRound()">Pause / Resume Round</button>
             <button onclick="stopRound()">Stop Round</button>
         </div>
 
-        <!-- Target Assignment -->
+        <!-- Reset Controls -->
         <div class="card">
-            <h2>Assign Targets</h2>
-            <button onclick="assignTargets()">Assign Random Targets</button>
-        </div>
-
-        <!-- Reset Game -->
-        <div class="card">
-            <h2>Reset Game</h2>
-            <button onclick="resetGame()">Reset All Players</button>
+            <h2>Reset Controls</h2>
+            <button onclick="resetElims()">Reset Eliminations</button>
+            <button onclick="resetTargets()">Reset Targets</button>
         </div>
 
         <!-- Player List -->
@@ -151,6 +215,19 @@
 
     </div>
 
+    <!-- Modal -->
+    <div class="modal-bg" id="modalBg">
+        <div class="modal-box">
+            <div class="modal-title" id="modalTitle">Confirm</div>
+            <div id="modalBodyText" style="margin-bottom:10px;"></div>
+            <input id="killerInput" class="modal-input" placeholder="Who eliminated them?" />
+            <div>
+                <button class="modal-btn modal-no" onclick="closeModal()">No</button>
+                <button class="modal-btn modal-yes" onclick="confirmModal()">Yes</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Firebase -->
     <script type="module">
         const firebaseConfig = {
@@ -164,15 +241,31 @@
 
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { 
-            getFirestore, collection, getDocs, doc, updateDoc, setDoc 
+            getFirestore, collection, getDocs, doc, updateDoc, setDoc, getDoc 
         } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
+        let modalMode = null; // "eliminate" or "revive"
+        let modalPlayerId = null;
+        let modalPlayerName = null;
+        let modalPlayerTarget = null;
+
         /* ---------------- LOAD PLAYERS ---------------- */
         async function loadPlayers() {
             const table = document.getElementById("playersTable");
+            // clear existing rows except header
+            table.innerHTML = `
+                <tr>
+                    <th>Username</th>
+                    <th>Target</th>
+                    <th>Status</th>
+                    <th>Elims</th>
+                    <th>Action</th>
+                </tr>
+            `;
+
             const snapshot = await getDocs(collection(db, "players"));
 
             snapshot.forEach(playerDoc => {
@@ -180,17 +273,25 @@
 
                 const row = document.createElement("tr");
 
+                const statusClass = p.eliminated ? "dead" : "alive";
+                const statusText = p.eliminated ? "Eliminated" : "Alive";
+
+                const actionLabel = p.eliminated ? "Revive" : "Eliminate";
+                const actionClass = p.eliminated ? "revive-btn" : "elim-btn";
+
                 row.innerHTML = `
                     <td>${p.username}</td>
                     <td>${p.target || "-"}</td>
                     <td>
-                        <span class="status-badge ${p.eliminated ? 'dead' : 'alive'}">
-                            ${p.eliminated ? "Eliminated" : "Alive"}
+                        <span class="status-badge ${statusClass}">
+                            ${statusText}
                         </span>
                     </td>
                     <td>${p.elims}</td>
                     <td>
-                        <button class="action-btn" onclick="markEliminated('${playerDoc.id}', '${p.username}')">Eliminate</button>
+                        <button class="action-btn ${actionClass}" onclick="openElimModal('${playerDoc.id}', '${p.username}', '${p.target || ""}', ${p.eliminated})">
+                            ${actionLabel}
+                        </button>
                     </td>
                 `;
 
@@ -198,70 +299,36 @@
             });
         }
 
-        /* ---------------- MAKE FUNCTIONS GLOBAL ---------------- */
-        window.markEliminated = async function(id, username) {
-            await updateDoc(doc(db, "players", id), {
-                eliminated: true,
-                eliminatedBy: "Admin"
-            });
+        /* ---------------- ROUND CONTROLS ---------------- */
 
-            alert(username + " has been eliminated.");
-            location.reload();
-        }
-
+        // Start round: roundActive = true, roundPause = false, assign circular targets (excluding admin & eliminated)
         window.startRound = async function() {
+            // set game state
             await setDoc(doc(db, "game", "state"), {
-                roundActive: true
+                roundActive: true,
+                roundPause: false
             }, { merge: true });
 
-            alert("Round started!");
-        }
-
-        window.stopRound = async function() {
-            await setDoc(doc(db, "game", "state"), {
-                roundActive: false
-            }, { merge: true });
-
-            alert("Round stopped!");
-        }
-
-        window.resetGame = async function() {
-            const snapshot = await getDocs(collection(db, "players"));
-
-            for (const playerDoc of snapshot.docs) {
-                await updateDoc(doc(db, "players", playerDoc.id), {
-                    eliminated: false,
-                    elims: 0,
-                    target: "",
-                    eliminatedBy: ""
-                });
-            }
-
-            await setDoc(doc(db, "game", "state"), {
-                roundActive: false,
-                winner: ""
-            }, { merge: true });
-
-            alert("Game reset!");
-            location.reload();
-        }
-
-        window.assignTargets = async function() {
+            // get players (non-admin, not eliminated)
             const snapshot = await getDocs(collection(db, "players"));
             const players = [];
 
             snapshot.forEach(docSnap => {
                 const d = docSnap.data();
-                if (d.role !== "admin") players.push({ id: docSnap.id, ...d });
+                if (d.role !== "admin" && !d.eliminated) {
+                    players.push({ id: docSnap.id, ...d });
+                }
             });
 
             if (players.length < 2) {
-                alert("Not enough players.");
+                alert("Not enough active players to assign targets.");
                 return;
             }
 
+            // shuffle
             players.sort(() => Math.random() - 0.5);
 
+            // circular assignment A->B->C->...->A
             for (let i = 0; i < players.length; i++) {
                 const target = players[(i + 1) % players.length];
                 await updateDoc(doc(db, "players", players[i].id), {
@@ -269,10 +336,171 @@
                 });
             }
 
-            alert("Targets assigned!");
-            location.reload();
-        }
+            alert("Round started and targets assigned.");
+            loadPlayers();
+        };
 
+        // Pause / Resume round: toggle roundPause
+        window.pauseRound = async function() {
+            const stateRef = doc(db, "game", "state");
+            const snap = await getDoc(stateRef);
+            let currentPause = false;
+            if (snap.exists()) {
+                const data = snap.data();
+                currentPause = !!data.roundPause;
+            }
+
+            await setDoc(stateRef, {
+                roundPause: !currentPause
+            }, { merge: true });
+
+            alert(`Round ${!currentPause ? "paused" : "resumed"}.`);
+        };
+
+        // Stop round: roundActive = false
+        window.stopRound = async function() {
+            await setDoc(doc(db, "game", "state"), {
+                roundActive: false
+            }, { merge: true });
+
+            alert("Round stopped.");
+        };
+
+        /* ---------------- RESET CONTROLS ---------------- */
+
+        window.resetElims = async function() {
+            const snapshot = await getDocs(collection(db, "players"));
+
+            for (const playerDoc of snapshot.docs) {
+                await updateDoc(doc(db, "players", playerDoc.id), {
+                    elims: 0
+                });
+            }
+
+            alert("All eliminations reset.");
+            loadPlayers();
+        };
+
+        window.resetTargets = async function() {
+            const snapshot = await getDocs(collection(db, "players"));
+
+            for (const playerDoc of snapshot.docs) {
+                await updateDoc(doc(db, "players", playerDoc.id), {
+                    target: ""
+                });
+            }
+
+            alert("All targets reset.");
+            loadPlayers();
+        };
+
+        /* ---------------- ELIMINATE / REVIVE MODAL ---------------- */
+
+        window.openElimModal = function(playerId, playerName, playerTarget, isEliminated) {
+            modalPlayerId = playerId;
+            modalPlayerName = playerName;
+            modalPlayerTarget = playerTarget || "";
+            modalMode = isEliminated ? "revive" : "eliminate";
+
+            const modalBg = document.getElementById("modalBg");
+            const title = document.getElementById("modalTitle");
+            const bodyText = document.getElementById("modalBodyText");
+            const killerInput = document.getElementById("killerInput");
+
+            if (modalMode === "eliminate") {
+                title.textContent = "Eliminate Player";
+                bodyText.textContent = `Who eliminated ${playerName}? (leave blank for Unknown)`;
+                killerInput.style.display = "block";
+                killerInput.value = "";
+            } else {
+                title.textContent = "Revive Player";
+                bodyText.textContent = `Are you sure you want to revive ${playerName}?`;
+                killerInput.style.display = "none";
+                killerInput.value = "";
+            }
+
+            modalBg.style.display = "flex";
+        };
+
+        window.closeModal = function() {
+            document.getElementById("modalBg").style.display = "none";
+            modalMode = null;
+            modalPlayerId = null;
+            modalPlayerName = null;
+            modalPlayerTarget = null;
+        };
+
+        window.confirmModal = async function() {
+            if (!modalPlayerId || !modalMode) {
+                closeModal();
+                return;
+            }
+
+            if (modalMode === "eliminate") {
+                const killerInput = document.getElementById("killerInput");
+                let killerName = killerInput.value.trim();
+                if (killerName === "") killerName = "Unknown";
+
+                // mark victim eliminated
+                await updateDoc(doc(db, "players", modalPlayerId), {
+                    eliminated: true,
+                    eliminatedBy: killerName
+                });
+
+                // if killer is known (not "Unknown"), try to:
+                // 1) increment killer's elims
+                // 2) give killer the victim's target
+                if (killerName !== "Unknown") {
+                    const snapshot = await getDocs(collection(db, "players"));
+                    let killerDocId = null;
+                    let victimTarget = modalPlayerTarget || "";
+
+                    snapshot.forEach(docSnap => {
+                        const d = docSnap.data();
+                        if (d.username === killerName) {
+                            killerDocId = docSnap.id;
+                        }
+                    });
+
+                    if (killerDocId) {
+                        const killerRef = doc(db, "players", killerDocId);
+                        const killerSnap = await getDoc(killerRef);
+                        if (killerSnap.exists()) {
+                            const kd = killerSnap.data();
+                            const newElims = (kd.elims || 0) + 1;
+
+                            const updateData = { elims: newElims };
+                            if (victimTarget && victimTarget !== modalPlayerName) {
+                                updateData.target = victimTarget;
+                            }
+
+                            await updateDoc(killerRef, updateData);
+                        }
+                    }
+                }
+
+                // remove victim from loop: clear their target
+                await updateDoc(doc(db, "players", modalPlayerId), {
+                    target: ""
+                });
+
+                alert(`${modalPlayerName} has been eliminated.`);
+            } else if (modalMode === "revive") {
+                // revive player, clear eliminatedBy and target
+                await updateDoc(doc(db, "players", modalPlayerId), {
+                    eliminated: false,
+                    eliminatedBy: "",
+                    target: ""
+                });
+
+                alert(`${modalPlayerName} has been revived.`);
+            }
+
+            closeModal();
+            loadPlayers();
+        };
+
+        /* ---------------- INIT ---------------- */
         loadPlayers();
     </script>
 
