@@ -75,7 +75,6 @@
         .silver { background: #c0c0c0; color: black; font-weight: 700; }
         .bronze { background: #cd7f32; color: black; font-weight: 700; }
 
-        /* Admin row */
         .admin-row {
             background: #444;
             padding: 10px;
@@ -85,6 +84,7 @@
             text-align: center;
         }
 
+        /* Center column */
         .center-box {
             background: #1a1a1a;
             padding: 30px;
@@ -133,22 +133,24 @@
             font-size: 28px;
             font-weight: 700;
             display: none;
-            min-height: 150px;
+            min-height: 180px;
         }
 
         .elim-btn {
-            margin-top: 20px;
-            padding: 15px;
+            margin-top: 25px;
+            padding: 18px;
+            width: 90%;
             background: #4a6cf7;
             border: none;
             border-radius: 10px;
-            font-size: 20px;
+            font-size: 22px;
             font-weight: 700;
             color: white;
             cursor: pointer;
             display: none;
         }
 
+        /* Status badges */
         .badge {
             padding: 8px 12px;
             border-radius: 8px;
@@ -164,12 +166,23 @@
         .inactive { background: #777; }
 
         .time-box {
-            margin-top: 20px;
+            margin-top: 10px;
             padding: 15px;
             background: #2a2a2a;
             border-radius: 10px;
             text-align: center;
             font-size: 20px;
+        }
+
+        .elim-by-box {
+            background: #e53935;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 15px;
+            font-size: 18px;
+            font-weight: 700;
+            text-align: center;
+            display: none;
         }
 
         /* Modal */
@@ -244,9 +257,10 @@
 
             <button id="targetBtn" class="target-btn" onclick="toggleTarget()">Reveal Target</button>
 
-            <div id="targetDisplay" class="target-display">Target: Loading...</div>
-
-            <button id="elimBtn" class="elim-btn" onclick="openModal()">Eliminated Target</button>
+            <div id="targetDisplay" class="target-display">
+                Target: Loading...
+                <button id="elimBtn" class="elim-btn" onclick="openModal()">Eliminated Target</button>
+            </div>
         </div>
 
         <!-- RIGHT SIDE -->
@@ -254,16 +268,18 @@
             <div class="side-title">Game Status</div>
 
             <p class="side-info">
-                <strong>Status:</strong>
-                <span id="statusBadge" class="badge">Loading...</span>
-            </p>
-
-            <p class="side-info">
                 <strong>Round:</strong>
                 <span id="roundBadge" class="badge">Loading...</span>
             </p>
 
             <div class="time-box" id="timeBox">Time: --:--:--</div>
+
+            <p class="side-info">
+                <strong>Status:</strong>
+                <span id="statusBadge" class="badge">Loading...</span>
+            </p>
+
+            <div id="eliminatedByBox" class="elim-by-box">You were eliminated by Unknown</div>
         </div>
 
     </div>
@@ -316,11 +332,24 @@
             document.getElementById("elims").textContent = p.elims;
 
             currentTargetName = p.target || "";
-            document.getElementById("targetDisplay").textContent = "Target: " + (currentTargetName || "Not assigned yet");
+            document.getElementById("targetDisplay").childNodes[0].textContent =
+                "Target: " + (currentTargetName || "Not assigned yet");
 
             const statusBadge = document.getElementById("statusBadge");
-            statusBadge.textContent = p.eliminated ? "Eliminated" : "Alive";
-            statusBadge.className = "badge " + (p.eliminated ? "dead" : "alive");
+            const eliminatedByBox = document.getElementById("eliminatedByBox");
+
+            if (p.eliminated) {
+                statusBadge.textContent = "Eliminated";
+                statusBadge.className = "badge dead";
+
+                eliminatedByBox.style.display = "block";
+                eliminatedByBox.textContent =
+                    "You were eliminated by " + (p.eliminatedBy || "Unknown");
+            } else {
+                statusBadge.textContent = "Alive";
+                statusBadge.className = "badge alive";
+                eliminatedByBox.style.display = "none";
+            }
 
             const roundBadge = document.getElementById("roundBadge");
             roundBadge.textContent = g.roundActive ? "Active" : "Not Active";
@@ -359,7 +388,6 @@
         loadPlayer();
         loadLeaderboard();
 
-        /* Reveal / Hide Target toggle */
         window.toggleTarget = function () {
             const box = document.getElementById("targetDisplay");
             const btn = document.getElementById("targetBtn");
@@ -378,7 +406,6 @@
             }
         };
 
-        /* Modal controls */
         window.openModal = function () {
             document.getElementById("modalText").textContent =
                 `Are you sure you eliminated ${currentTargetName}?`;
@@ -397,7 +424,8 @@
                 const d = docSnap.data();
                 if (d.username === currentTargetName) {
                     await updateDoc(doc(db, "players", docSnap.id), {
-                        eliminated: true
+                        eliminated: true,
+                        eliminatedBy: document.getElementById("username").textContent
                     });
                 }
             });
@@ -406,7 +434,6 @@
             alert("Target marked as eliminated.");
         };
 
-        /* Live time */
         function updateTime() {
             const now = new Date();
             document.getElementById("timeBox").textContent =
