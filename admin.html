@@ -255,7 +255,6 @@
         /* ---------------- LOAD PLAYERS ---------------- */
         async function loadPlayers() {
             const table = document.getElementById("playersTable");
-            // clear existing rows except header
             table.innerHTML = `
                 <tr>
                     <th>Username</th>
@@ -270,6 +269,9 @@
 
             snapshot.forEach(playerDoc => {
                 const p = playerDoc.data();
+
+                // hide admin from dashboard
+                if (p.role === "admin") return;
 
                 const row = document.createElement("tr");
 
@@ -303,13 +305,12 @@
 
         // Start round: roundActive = true, roundPause = false, assign circular targets (excluding admin & eliminated)
         window.startRound = async function() {
-            // set game state
             await setDoc(doc(db, "game", "state"), {
                 roundActive: true,
-                roundPause: false
+                roundPause: false,
+                winner: ""
             }, { merge: true });
 
-            // get players (non-admin, not eliminated)
             const snapshot = await getDocs(collection(db, "players"));
             const players = [];
 
@@ -325,10 +326,8 @@
                 return;
             }
 
-            // shuffle
             players.sort(() => Math.random() - 0.5);
 
-            // circular assignment A->B->C->...->A
             for (let i = 0; i < players.length; i++) {
                 const target = players[(i + 1) % players.length];
                 await updateDoc(doc(db, "players", players[i].id), {
@@ -394,6 +393,29 @@
             loadPlayers();
         };
 
+        /* ---------------- WINNER CHECK ---------------- */
+
+        async function checkWinner() {
+            const snapshot = await getDocs(collection(db, "players"));
+            const alive = [];
+
+            snapshot.forEach(docSnap => {
+                const d = docSnap.data();
+                if (d.role !== "admin" && !d.eliminated) {
+                    alive.push(d.username);
+                }
+            });
+
+            if (alive.length === 1) {
+                const winnerName = alive[0];
+                await setDoc(doc(db, "game", "state"), {
+                    winner: winnerName,
+                    roundActive: false
+                }, { merge: true });
+                alert(`${winnerName} has won the game!`);
+            }
+        }
+
         /* ---------------- ELIMINATE / REVIVE MODAL ---------------- */
 
         window.openElimModal = function(playerId, playerName, playerTarget, isEliminated) {
@@ -439,7 +461,34 @@
             if (modalMode === "eliminate") {
                 const killerInput = document.getElementById("killerInput");
                 let killerName = killerInput.value.trim();
-                if (killerName === "") killerName = "Unknown";
+
+                // empty -> Unknown (no killer logic)
+                let killerDocId = null;
+                let killerData = null;
+
+                if (killerName === "") {
+                    killerName = "Unknown";
+                } else {
+                    // validate killer exists and is not admin and not eliminated
+                    const snapshot = await getDocs(collection(db, "players"));
+                    snapshot.forEach(docSnap => {
+                        const d = docSnap.data();
+                        if (d.username === killerName) {
+                            killerDocId = docSnap.id;
+                            killerData = d;
+                        }
+                    });
+
+                    if (!killerDocId) {
+                        alert(`No player named "${killerName}" exists.`);
+                        return;
+                    }
+
+                    if (killerData.role === "admin" || killerData.eliminated) {
+                        alert(`"${killerName}" cannot eliminate players.`);
+                        return;
+                    }
+                }
 
                 // mark victim eliminated
                 await updateDoc(doc(db, "players", modalPlayerId), {
@@ -447,35 +496,23 @@
                     eliminatedBy: killerName
                 });
 
-                // if killer is known (not "Unknown"), try to:
-                // 1) increment killer's elims
-                // 2) give killer the victim's target
-                if (killerName !== "Unknown") {
-                    const snapshot = await getDocs(collection(db, "players"));
-                    let killerDocId = null;
-                    let victimTarget = modalPlayerTarget || "";
+                // killer logic only if known player (not Unknown)
+                if (killerName !== "Unknown" && killerDocId) {
+                    const killerRef = doc(db, "players", killerDocId);
+                    const killerSnap = await getDoc(killerRef);
+                    if (killerSnap.exists()) {
+                        const kd = killerSnap.data();
+                        const newElims = (kd.elims || 0) + 1;
 
-                    snapshot.forEach(docSnap => {
-                        const d = docSnap.data();
-                        if (d.username === killerName) {
-                            killerDocId = docSnap.id;
+                        const updateData = { elims: newElims };
+
+                        // A gets B's target (C)
+                        const victimTarget = modalPlayerTarget || "";
+                        if (victimTarget && victimTarget !== modalPlayerName) {
+                            updateData.target = victimTarget;
                         }
-                    });
 
-                    if (killerDocId) {
-                        const killerRef = doc(db, "players", killerDocId);
-                        const killerSnap = await getDoc(killerRef);
-                        if (killerSnap.exists()) {
-                            const kd = killerSnap.data();
-                            const newElims = (kd.elims || 0) + 1;
-
-                            const updateData = { elims: newElims };
-                            if (victimTarget && victimTarget !== modalPlayerName) {
-                                updateData.target = victimTarget;
-                            }
-
-                            await updateDoc(killerRef, updateData);
-                        }
+                        await updateDoc(killerRef, updateData);
                     }
                 }
 
@@ -484,9 +521,10 @@
                     target: ""
                 });
 
+                await checkWinner();
+
                 alert(`${modalPlayerName} has been eliminated.`);
             } else if (modalMode === "revive") {
-                // revive player, clear eliminatedBy and target
                 await updateDoc(doc(db, "players", modalPlayerId), {
                     eliminated: false,
                     eliminatedBy: "",
