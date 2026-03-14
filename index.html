@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta-name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Splashin Login</title>
 
     <style>
@@ -35,8 +35,15 @@
             font-size: 30px;
         }
 
+        .input-wrapper {
+            width: 100%;
+            display: flex;
+            justify-content: center;
+        }
+
         input {
             width: 100%;
+            max-width: 350px;
             padding: 16px;
             margin: 12px 0;
             border-radius: 10px;
@@ -44,6 +51,7 @@
             background: #2a2a2a;
             color: white;
             font-size: 18px;
+            box-sizing: border-box;
         }
 
         input::placeholder {
@@ -52,6 +60,7 @@
 
         button {
             width: 100%;
+            max-width: 350px;
             padding: 16px;
             background: #4a6cf7;
             color: white;
@@ -61,6 +70,7 @@
             cursor: pointer;
             margin-top: 15px;
             font-weight: 600;
+            box-sizing: border-box;
         }
 
         button:hover {
@@ -91,8 +101,13 @@
     <div class="login-box">
         <h2>Splashin Login</h2>
 
-        <input type="text" id="username" placeholder="Username">
-        <input type="password" id="password" placeholder="Password">
+        <div class="input-wrapper">
+            <input type="text" id="username" placeholder="Username">
+        </div>
+
+        <div class="input-wrapper">
+            <input type="password" id="password" placeholder="Password">
+        </div>
 
         <button onclick="login()">Login</button>
 
@@ -154,12 +169,12 @@
             }
         }
 
-        // Allow pressing Enter to log in
+        // Enter key triggers login
         window.addEventListener("keydown", (e) => {
             if (e.key === "Enter") login();
         });
 
-        // Make login() available to the button
+        // Expose login() to button
         window.login = login;
     </script>
 
