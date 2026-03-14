@@ -87,7 +87,7 @@
             object-fit: cover;
         }
 
-        /* Show Target button */
+        /* Reveal Target button */
         .target-btn {
             width: 100%;
             padding: 20px;
@@ -102,18 +102,19 @@
         }
 
         .target-btn:hover {
-            background: #3c59d4;
+            opacity: 0.9;
         }
 
         /* Target reveal box */
         .target-display {
             margin-top: 20px;
-            padding: 20px;
+            padding: 30px;
             background: #2a2a2a;
             border-radius: 12px;
-            font-size: 26px;
+            font-size: 28px;
             font-weight: 700;
             display: none;
+            min-height: 120px;
         }
 
         /* Status badges */
@@ -171,7 +172,7 @@
                 <img src="assets/profile.png" alt="Profile">
             </div>
 
-            <button class="target-btn" onclick="showTarget()">Show Target</button>
+            <button id="targetBtn" class="target-btn" onclick="toggleTarget()">Reveal Target</button>
 
             <div id="targetDisplay" class="target-display">Target: Loading...</div>
         </div>
@@ -234,32 +235,33 @@
             document.getElementById("targetDisplay").textContent = "Target: " + (p.target || "Not assigned yet");
 
             const statusBadge = document.getElementById("statusBadge");
-            if (p.eliminated) {
-                statusBadge.textContent = "Eliminated";
-                statusBadge.className = "badge dead";
-            } else {
-                statusBadge.textContent = "Alive";
-                statusBadge.className = "badge alive";
-            }
+            statusBadge.textContent = p.eliminated ? "Eliminated" : "Alive";
+            statusBadge.className = "badge " + (p.eliminated ? "dead" : "alive");
 
             const roundBadge = document.getElementById("roundBadge");
-            if (g.roundActive) {
-                roundBadge.textContent = "Active";
-                roundBadge.className = "badge active";
-            } else {
-                roundBadge.textContent = "Not Active";
-                roundBadge.className = "badge inactive";
-            }
+            roundBadge.textContent = g.roundActive ? "Active" : "Not Active";
+            roundBadge.className = "badge " + (g.roundActive ? "active" : "inactive");
         }
 
         loadPlayer();
 
-        // FIXED: Show Target now works
-        window.showTarget = function () {
-            document.getElementById("targetDisplay").style.display = "block";
+        /* Reveal / Hide Target toggle */
+        window.toggleTarget = function () {
+            const box = document.getElementById("targetDisplay");
+            const btn = document.getElementById("targetBtn");
+
+            if (box.style.display === "none" || box.style.display === "") {
+                box.style.display = "block";
+                btn.textContent = "Hide Target";
+                btn.style.background = "#e53935";
+            } else {
+                box.style.display = "none";
+                btn.textContent = "Reveal Target";
+                btn.style.background = "#4a6cf7";
+            }
         };
 
-        // Live time
+        /* Live time */
         function updateTime() {
             const now = new Date();
             document.getElementById("timeBox").textContent =
