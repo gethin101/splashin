@@ -9,3 +9,5 @@ There is a leaderboard tracking who has the most amount of eliminations.
 Everybody has to be honest and only say that they have eliminated their target when they actually have.
 
 Everything will be automated and random so nobody can cheat and so everyone can play without there needing to be an admin
+
+
