@@ -93,12 +93,11 @@
 
     <!-- Firebase -->
     <script type="module">
-        // ✅ FIXED CONFIG
         const firebaseConfig = {
           apiKey: "AIzaSyBYNiqTUUJtRHLM-9KWcRkRWxvbgo1JL8M",
           authDomain: "splashin-game.firebaseapp.com",
           projectId: "splashin-game",
-          storageBucket: "splashin-game.appspot.com",   // FIXED
+          storageBucket: "splashin-game.appspot.com",
           messagingSenderId: "288041679813",
           appId: "1:288041679813:web:381e2b17ff1a3779b829ac"
         };
@@ -146,6 +145,9 @@
                 errorBox.textContent = "Database error — check console.";
             }
         }
+
+        // ✅ Make login() visible to the button
+        window.login = login;
     </script>
 
 </body>
