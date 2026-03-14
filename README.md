@@ -11,3 +11,4 @@ Everybody has to be honest and only say that they have eliminated their target w
 Everything will be automated and random so nobody can cheat and so everyone can play without there needing to be an admin
 
 
+<img src="assets/player_1.png" alt="" width="800">
