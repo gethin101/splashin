@@ -367,9 +367,7 @@
             const gameRef = doc(db, "game", "state");
             const gameSnap = await getDoc(gameRef);
 
-            if (!playerSnap.exists()) {
-                return;
-            }
+            if (!playerSnap.exists()) return;
 
             const p = playerSnap.data();
             const g = gameSnap.exists() ? gameSnap.data() : {};
@@ -487,17 +485,9 @@
         window.openModal = function () {
             if (!currentPlayerData || !currentGameData) return;
 
-            if (currentPlayerData.eliminated) {
-                return;
-            }
-
-            if (!currentGameData.roundActive || currentGameData.roundPause) {
-                return;
-            }
-
-            if (!currentTargetName) {
-                return;
-            }
+            if (currentPlayerData.eliminated) return;
+            if (!currentGameData.roundActive || currentGameData.roundPause) return;
+            if (!currentTargetName) return;
 
             document.getElementById("modalText").textContent =
                 `Are you sure you eliminated ${currentTargetName}?`;
@@ -514,15 +504,12 @@
 
             snapshot.forEach(docSnap => {
                 const d = docSnap.data();
-                if (d.role !== "admin" && !d.eliminated) {
-                    alive.push(d.username);
-                }
+                if (d.role !== "admin" && !d.eliminated) alive.push(d.username);
             });
 
             if (alive.length === 1) {
-                const winnerName = alive[0];
                 await setDoc(doc(db, "game", "state"), {
-                    winner: winnerName,
+                    winner: alive[0],
                     roundActive: false
                 }, { merge: true });
             }
@@ -572,7 +559,7 @@
             const playerSnap = await getDoc(playerRef);
             if (playerSnap.exists()) {
                 const pd = playerSnap.data();
-                const newElims = (pd.elims || 0) + 1;
+                                const newElims = (pd.elims || 0) + 1;
                 const updateData = { elims: newElims };
 
                 if (victimTarget && victimTarget !== currentPlayerData.username) {
