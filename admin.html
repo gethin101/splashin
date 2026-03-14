@@ -198,8 +198,8 @@
             });
         }
 
-        /* ---------------- MARK PLAYER ELIMINATED ---------------- */
-        async function markEliminated(id, username) {
+        /* ---------------- MAKE FUNCTIONS GLOBAL ---------------- */
+        window.markEliminated = async function(id, username) {
             await updateDoc(doc(db, "players", id), {
                 eliminated: true,
                 eliminatedBy: "Admin"
@@ -209,8 +209,7 @@
             location.reload();
         }
 
-        /* ---------------- START ROUND ---------------- */
-        async function startRound() {
+        window.startRound = async function() {
             await setDoc(doc(db, "game", "state"), {
                 roundActive: true
             }, { merge: true });
@@ -218,8 +217,7 @@
             alert("Round started!");
         }
 
-        /* ---------------- STOP ROUND ---------------- */
-        async function stopRound() {
+        window.stopRound = async function() {
             await setDoc(doc(db, "game", "state"), {
                 roundActive: false
             }, { merge: true });
@@ -227,8 +225,7 @@
             alert("Round stopped!");
         }
 
-        /* ---------------- RESET GAME ---------------- */
-        async function resetGame() {
+        window.resetGame = async function() {
             const snapshot = await getDocs(collection(db, "players"));
 
             for (const playerDoc of snapshot.docs) {
@@ -249,8 +246,7 @@
             location.reload();
         }
 
-        /* ---------------- ASSIGN TARGETS ---------------- */
-        async function assignTargets() {
+        window.assignTargets = async function() {
             const snapshot = await getDocs(collection(db, "players"));
             const players = [];
 
