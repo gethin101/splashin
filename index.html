@@ -1,1 +1,145 @@
-website
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Splashin Login</title>
+
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            background: #f2f4f7;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        .login-box {
+            background: white;
+            padding: 30px;
+            width: 90%;
+            max-width: 350px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        h2 {
+            margin-bottom: 20px;
+            font-weight: 600;
+            color: #333;
+            font-size: 24px;
+        }
+
+        input {
+            width: 100%;
+            padding: 14px;
+            margin: 10px 0;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            font-size: 16px;
+        }
+
+        button {
+            width: 100%;
+            padding: 14px;
+            background: #4a6cf7;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 17px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
+        button:hover {
+            background: #3c59d4;
+        }
+
+        .error {
+            color: red;
+            margin-top: 10px;
+            font-size: 15px;
+        }
+
+        @media (max-width: 400px) {
+            .login-box {
+                padding: 20px;
+            }
+
+            input, button {
+                font-size: 15px;
+                padding: 12px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="login-box">
+        <h2>Login</h2>
+
+        <input type="text" id="username" placeholder="Username">
+        <input type="password" id="password" placeholder="Password">
+
+        <button onclick="login()">Login</button>
+
+        <div id="error" class="error"></div>
+    </div>
+
+    <!-- Firebase -->
+    <script type="module">
+        const firebaseConfig = {
+          apiKey: "AIzaSyBYNiqTUUJtRHLM-9KWcRkRWxvbgo1JL8M",
+          authDomain: "splashin-game.firebaseapp.com",
+          projectId: "splashin-game",
+          storageBucket: "splashin-game.firebasestorage.app",
+          messagingSenderId: "288041679813",
+          appId: "1:288041679813:web:381e2b17ff1a3779b829ac"
+        };
+
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        async function login() {
+            const user = document.getElementById("username").value.trim();
+            const pass = document.getElementById("password").value.trim();
+            const errorBox = document.getElementById("error");
+
+            errorBox.textContent = "";
+
+            const playersRef = collection(db, "players");
+            const snapshot = await getDocs(playersRef);
+
+            let found = false;
+
+            snapshot.forEach(doc => {
+                const data = doc.data();
+
+                if (data.username === user && data.password === pass) {
+                    found = true;
+
+                    if (data.role === "admin") {
+                        window.location.href = "admin.html";
+                    } else {
+                        localStorage.setItem("playerId", doc.id);
+                        window.location.href = "player.html";
+                    }
+                }
+            });
+
+            if (!found) {
+                errorBox.textContent = "Incorrect username or password.";
+            }
+        }
+    </script>
+
+</body>
+</html>
