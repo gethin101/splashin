@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Player Dashboard</title>
-
     <style>
         body {
             margin: 0;
@@ -21,6 +20,16 @@
             font-weight: 800;
         }
 
+        .winner-banner {
+            text-align: center;
+            padding: 15px 10px;
+            font-size: 22px;
+            font-weight: 800;
+            background: #4caf50;
+            color: white;
+            display: none;
+        }
+
         /* GRID LAYOUT */
         .layout {
             display: grid;
@@ -31,17 +40,9 @@
             margin: 0 auto;
         }
 
-        .left-box {
-            grid-column: 1;
-        }
-
-        .center-box {
-            grid-column: 2;
-        }
-
-        .right-box {
-            grid-column: 3;
-        }
+        .left-box { grid-column: 1; }
+        .center-box { grid-column: 2; }
+        .right-box { grid-column: 3; }
 
         .side-box {
             background: #1a1a1a;
@@ -83,9 +84,23 @@
             font-size: 18px;
         }
 
-        .gold { background: #d4af37; color: black; font-weight: 700; }
-        .silver { background: #c0c0c0; color: black; font-weight: 700; }
-        .bronze { background: #cd7f32; color: black; font-weight: 700; }
+        .gold {
+            background: #d4af37;
+            color: black;
+            font-weight: 700;
+        }
+
+        .silver {
+            background: #c0c0c0;
+            color: black;
+            font-weight: 700;
+        }
+
+        .bronze {
+            background: #cd7f32;
+            color: black;
+            font-weight: 700;
+        }
 
         .admin-row {
             background: #444;
@@ -225,8 +240,15 @@
             margin: 10px;
         }
 
-        .yes-btn { background: #4caf50; color: white; }
-        .no-btn { background: #e53935; color: white; }
+        .yes-btn {
+            background: #4caf50;
+            color: white;
+        }
+
+        .no-btn {
+            background: #e53935;
+            color: white;
+        }
 
         /* iPAD / MOBILE GRID LAYOUT */
         @media (max-width: 900px) {
@@ -237,19 +259,9 @@
                     "left right"
                     "center center";
             }
-
-            .left-box {
-                grid-area: left;
-            }
-
-            .right-box {
-                grid-area: right;
-            }
-
-            .center-box {
-                grid-area: center;
-                width: 100%;
-            }
+            .left-box { grid-area: left; }
+            .right-box { grid-area: right; }
+            .center-box { grid-area: center; width: 100%; }
         }
 
         @media (max-width: 600px) {
@@ -260,35 +272,25 @@
                     "right"
                     "center";
             }
-
-            .side-box {
-                min-height: auto;
-            }
-
-            .center-box {
-                min-height: auto;
-            }
+            .side-box { min-height: auto; }
+            .center-box { min-height: auto; }
         }
     </style>
 </head>
-
 <body>
-
     <div class="header" id="headerName">Player Dashboard</div>
+    <div class="winner-banner" id="winnerBanner"></div>
 
     <div class="layout">
-
         <!-- LEFT SIDE -->
         <div class="side-box left-box">
             <div class="side-title">Player Info</div>
-
             <p class="side-info"><strong>Username:</strong> <span id="username">Loading...</span></p>
             <p class="side-info"><strong>Eliminations:</strong> <span id="elims">0</span></p>
 
             <div class="leaderboard">
                 <div class="leaderboard-title">Elimination Leaderboard</div>
                 <div id="leaderboardList"></div>
-
                 <div class="admin-row">Admin: N/A</div>
             </div>
         </div>
@@ -323,9 +325,10 @@
                 <span id="statusBadge" class="badge">Loading...</span>
             </p>
 
-            <div id="eliminatedByBox" class="elim-by-box">You were eliminated by Unknown</div>
+            <div id="eliminatedByBox" class="elim-by-box">
+                You were eliminated by Unknown
+            </div>
         </div>
-
     </div>
 
     <!-- MODAL -->
@@ -349,7 +352,7 @@
         };
 
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getFirestore, doc, getDoc, collection, getDocs, updateDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getFirestore, doc, getDoc, collection, getDocs, updateDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
@@ -358,26 +361,33 @@
         if (!playerId) window.location.href = "index.html";
 
         let currentTargetName = "";
+        let currentPlayerData = null;
+        let currentGameData = null;
 
         async function loadPlayer() {
             const playerRef = doc(db, "players", playerId);
             const playerSnap = await getDoc(playerRef);
-
             const gameRef = doc(db, "game", "state");
             const gameSnap = await getDoc(gameRef);
 
-            if (!playerSnap.exists()) return alert("Player not found.");
+            if (!playerSnap.exists()) {
+                alert("Player not found.");
+                return;
+            }
 
             const p = playerSnap.data();
-            const g = gameSnap.data();
+            const g = gameSnap.exists() ? gameSnap.data() : {};
+
+            currentPlayerData = p;
+            currentGameData = g;
 
             document.getElementById("username").textContent = p.username;
             document.getElementById("headerName").textContent = p.username + " Dashboard";
             document.getElementById("elims").textContent = p.elims;
 
             currentTargetName = p.target || "";
-            document.getElementById("targetDisplay").childNodes[0].textContent =
-                "Target: " + (currentTargetName || "Not assigned yet");
+            const targetDisplay = document.getElementById("targetDisplay");
+            targetDisplay.childNodes[0].textContent = "Target: " + (currentTargetName || "Not assigned yet");
 
             const statusBadge = document.getElementById("statusBadge");
             const eliminatedByBox = document.getElementById("eliminatedByBox");
@@ -385,10 +395,8 @@
             if (p.eliminated) {
                 statusBadge.textContent = "Eliminated";
                 statusBadge.className = "badge dead";
-
                 eliminatedByBox.style.display = "block";
-                eliminatedByBox.textContent =
-                    "You were eliminated by " + (p.eliminatedBy || "Unknown");
+                eliminatedByBox.textContent = "You were eliminated by " + (p.eliminatedBy || "Unknown");
             } else {
                 statusBadge.textContent = "Alive";
                 statusBadge.className = "badge alive";
@@ -396,19 +404,45 @@
             }
 
             const roundBadge = document.getElementById("roundBadge");
-            roundBadge.textContent = g.roundActive ? "Active" : "Not Active";
-            roundBadge.className = "badge " + (g.roundActive ? "active" : "inactive");
+            const roundActive = !!g.roundActive;
+            const roundPause = !!g.roundPause;
+
+            if (roundActive) {
+                roundBadge.textContent = roundPause ? "Paused" : "Active";
+                roundBadge.className = "badge active";
+            } else {
+                roundBadge.textContent = "Not Active";
+                roundBadge.className = "badge inactive";
+            }
+
+            // winner banner
+            const winnerBanner = document.getElementById("winnerBanner");
+            if (g.winner && g.winner !== "") {
+                if (g.winner === p.username) {
+                    winnerBanner.textContent = "YOU WON THE GAME!";
+                } else {
+                    winnerBanner.textContent = g.winner + " has won the game!";
+                }
+                winnerBanner.style.display = "block";
+            } else {
+                winnerBanner.style.display = "none";
+            }
+
+            // if eliminated or game not active, hide elim button
+            const elimBtn = document.getElementById("elimBtn");
+            if (p.eliminated || !roundActive || roundPause || !currentTargetName) {
+                elimBtn.style.display = "none";
+            }
         }
 
         async function loadLeaderboard() {
             const list = document.getElementById("leaderboardList");
             list.innerHTML = "";
-
             const snapshot = await getDocs(collection(db, "players"));
             const players = [];
 
-            snapshot.forEach(doc => {
-                const d = doc.data();
+            snapshot.forEach(docSnap => {
+                const d = docSnap.data();
                 if (d.role !== "admin") {
                     players.push({ username: d.username, elims: d.elims });
                 }
@@ -419,11 +453,9 @@
             players.forEach((p, i) => {
                 const div = document.createElement("div");
                 div.classList.add("leaderboard-item");
-
                 if (i === 0) div.classList.add("gold");
                 else if (i === 1) div.classList.add("silver");
                 else if (i === 2) div.classList.add("bronze");
-
                 div.textContent = `${p.username}: ${p.elims}`;
                 list.appendChild(div);
             });
@@ -439,7 +471,14 @@
 
             if (box.style.display === "none" || box.style.display === "") {
                 box.style.display = "block";
-                elimBtn.style.display = "block";
+
+                // only show elim button if allowed to kill
+                const canKill = currentPlayerData && !currentPlayerData.eliminated &&
+                                currentGameData && currentGameData.roundActive &&
+                                !currentGameData.roundPause &&
+                                currentTargetName;
+                elimBtn.style.display = canKill ? "block" : "none";
+
                 btn.textContent = "Hide Target";
                 btn.style.background = "#e53935";
             } else {
@@ -451,6 +490,23 @@
         };
 
         window.openModal = function () {
+            if (!currentPlayerData || !currentGameData) return;
+
+            if (currentPlayerData.eliminated) {
+                alert("You are eliminated and cannot eliminate anyone.");
+                return;
+            }
+
+            if (!currentGameData.roundActive || currentGameData.roundPause) {
+                alert("Round is not active right now.");
+                return;
+            }
+
+            if (!currentTargetName) {
+                alert("You don't have a target.");
+                return;
+            }
+
             document.getElementById("modalText").textContent =
                 `Are you sure you eliminated ${currentTargetName}?`;
             document.getElementById("modalBg").style.display = "flex";
@@ -460,22 +516,98 @@
             document.getElementById("modalBg").style.display = "none";
         };
 
-        window.confirmElimination = async function () {
-            if (!currentTargetName) return;
-
+        async function checkWinner() {
             const snapshot = await getDocs(collection(db, "players"));
-            snapshot.forEach(async docSnap => {
+            const alive = [];
+
+            snapshot.forEach(docSnap => {
                 const d = docSnap.data();
-                if (d.username === currentTargetName) {
-                    await updateDoc(doc(db, "players", docSnap.id), {
-                        eliminated: true,
-                        eliminatedBy: document.getElementById("username").textContent
-                    });
+                if (d.role !== "admin" && !d.eliminated) {
+                    alive.push(d.username);
                 }
             });
 
+            if (alive.length === 1) {
+                const winnerName = alive[0];
+                await setDoc(doc(db, "game", "state"), {
+                    winner: winnerName,
+                    roundActive: false
+                }, { merge: true });
+            }
+        }
+
+        window.confirmElimination = async function () {
+            if (!currentTargetName || !currentPlayerData || !currentGameData) return;
+
+            if (currentPlayerData.eliminated) {
+                alert("You are eliminated and cannot eliminate anyone.");
+                document.getElementById("modalBg").style.display = "none";
+                return;
+            }
+
+            if (!currentGameData.roundActive || currentGameData.roundPause) {
+                alert("Round is not active right now.");
+                document.getElementById("modalBg").style.display = "none";
+                return;
+            }
+
+            const snapshot = await getDocs(collection(db, "players"));
+
+            let victimDocId = null;
+            let victimData = null;
+
+            snapshot.forEach(docSnap => {
+                const d = docSnap.data();
+                if (d.username === currentTargetName) {
+                    victimDocId = docSnap.id;
+                    victimData = d;
+                }
+            });
+
+            if (!victimDocId || !victimData) {
+                alert("Target not found.");
+                document.getElementById("modalBg").style.display = "none";
+                return;
+            }
+
+            // mark victim eliminated
+            await updateDoc(doc(db, "players", victimDocId), {
+                eliminated: true,
+                eliminatedBy: currentPlayerData.username
+            });
+
+            // killer (this player) gets victim's target and +1 elim
+            const victimTarget = victimData.target || "";
+            const playerRef = doc(db, "players", playerId);
+            const playerSnap = await getDoc(playerRef);
+            if (playerSnap.exists()) {
+                const pd = playerSnap.data();
+                const newElims = (pd.elims || 0) + 1;
+                const updateData = { elims: newElims };
+
+                if (victimTarget && victimTarget !== currentPlayerData.username) {
+                    updateData.target = victimTarget;
+                    currentTargetName = victimTarget;
+                } else {
+                    updateData.target = "";
+                    currentTargetName = "";
+                }
+
+                await updateDoc(playerRef, updateData);
+            }
+
+            // clear victim's target
+            await updateDoc(doc(db, "players", victimDocId), {
+                target: ""
+            });
+
+            await checkWinner();
+
             document.getElementById("modalBg").style.display = "none";
             alert("Target marked as eliminated.");
+
+            await loadPlayer();
+            await loadLeaderboard();
         };
 
         function updateTime() {
@@ -483,9 +615,9 @@
             document.getElementById("timeBox").textContent =
                 "Time: " + now.toLocaleTimeString("en-GB", { hour12: false });
         }
+
         setInterval(updateTime, 1000);
         updateTime();
     </script>
-
 </body>
 </html>
