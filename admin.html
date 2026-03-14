@@ -110,15 +110,7 @@
             background: #c62828;
         }
 
-        .revive-btn {
-            background: #4a6cf7;
-        }
-
-        .revive-btn:hover {
-            background: #3c59d4;
-        }
-
-        /* Modal */
+        /* Modal (shared for all confirms + eliminate) */
         .modal-bg {
             position: fixed;
             top: 0; left: 0;
@@ -186,16 +178,17 @@
         <!-- Round Controls -->
         <div class="card">
             <h2>Round Controls</h2>
-            <button onclick="startRound()">Start Round (assign targets)</button>
-            <button onclick="pauseRound()">Pause / Resume Round</button>
-            <button onclick="stopRound()">Stop Round</button>
+            <button onclick="openConfirm('startRound')">Start Round (assign targets)</button>
+            <button onclick="openConfirm('pauseRound')">Pause / Resume Round</button>
+            <button onclick="openConfirm('stopRound')">Stop Round</button>
         </div>
 
         <!-- Reset Controls -->
         <div class="card">
             <h2>Reset Controls</h2>
-            <button onclick="resetElims()">Reset Eliminations</button>
-            <button onclick="resetTargets()">Reset Targets</button>
+            <button onclick="openConfirm('resetElims')">Reset Eliminations</button>
+            <button onclick="openConfirm('resetTargets')">Reset Targets</button>
+            <button onclick="openConfirm('resetStatus')">Reset Status (Alive)</button>
         </div>
 
         <!-- Player List -->
@@ -247,10 +240,11 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        let modalMode = null; // "eliminate" or "revive"
+        let modalMode = null;          // "eliminate" or "confirmAction"
         let modalPlayerId = null;
         let modalPlayerName = null;
         let modalPlayerTarget = null;
+        let pendingAction = null;      // "startRound", "pauseRound", etc.
 
         /* ---------------- LOAD PLAYERS ---------------- */
         async function loadPlayers() {
@@ -278,9 +272,6 @@
                 const statusClass = p.eliminated ? "dead" : "alive";
                 const statusText = p.eliminated ? "Eliminated" : "Alive";
 
-                const actionLabel = p.eliminated ? "Revive" : "Eliminate";
-                const actionClass = p.eliminated ? "revive-btn" : "elim-btn";
-
                 row.innerHTML = `
                     <td>${p.username}</td>
                     <td>${p.target || "-"}</td>
@@ -291,8 +282,8 @@
                     </td>
                     <td>${p.elims}</td>
                     <td>
-                        <button class="action-btn ${actionClass}" onclick="openElimModal('${playerDoc.id}', '${p.username}', '${p.target || ""}', ${p.eliminated})">
-                            ${actionLabel}
+                        <button class="action-btn elim-btn" onclick="openElimModal('${playerDoc.id}', '${p.username}', '${p.target || ""}', ${p.eliminated})">
+                            Eliminate
                         </button>
                     </td>
                 `;
@@ -303,12 +294,10 @@
 
         /* ---------------- ROUND CONTROLS ---------------- */
 
-        // Start round: roundActive = true, roundPause = false, assign circular targets (excluding admin & eliminated)
-        window.startRound = async function() {
+        async function doStartRound() {
             await setDoc(doc(db, "game", "state"), {
                 roundActive: true,
-                roundPause: false,
-                winner: ""
+                roundPause: false
             }, { merge: true });
 
             const snapshot = await getDocs(collection(db, "players"));
@@ -322,7 +311,6 @@
             });
 
             if (players.length < 2) {
-                alert("Not enough active players to assign targets.");
                 return;
             }
 
@@ -335,12 +323,10 @@
                 });
             }
 
-            alert("Round started and targets assigned.");
             loadPlayers();
-        };
+        }
 
-        // Pause / Resume round: toggle roundPause
-        window.pauseRound = async function() {
+        async function doPauseRound() {
             const stateRef = doc(db, "game", "state");
             const snap = await getDoc(stateRef);
             let currentPause = false;
@@ -352,22 +338,17 @@
             await setDoc(stateRef, {
                 roundPause: !currentPause
             }, { merge: true });
+        }
 
-            alert(`Round ${!currentPause ? "paused" : "resumed"}.`);
-        };
-
-        // Stop round: roundActive = false
-        window.stopRound = async function() {
+        async function doStopRound() {
             await setDoc(doc(db, "game", "state"), {
                 roundActive: false
             }, { merge: true });
-
-            alert("Round stopped.");
-        };
+        }
 
         /* ---------------- RESET CONTROLS ---------------- */
 
-        window.resetElims = async function() {
+        async function doResetElims() {
             const snapshot = await getDocs(collection(db, "players"));
 
             for (const playerDoc of snapshot.docs) {
@@ -376,11 +357,10 @@
                 });
             }
 
-            alert("All eliminations reset.");
             loadPlayers();
-        };
+        }
 
-        window.resetTargets = async function() {
+        async function doResetTargets() {
             const snapshot = await getDocs(collection(db, "players"));
 
             for (const playerDoc of snapshot.docs) {
@@ -389,9 +369,24 @@
                 });
             }
 
-            alert("All targets reset.");
             loadPlayers();
-        };
+        }
+
+        async function doResetStatus() {
+            const snapshot = await getDocs(collection(db, "players"));
+
+            for (const playerDoc of snapshot.docs) {
+                const d = playerDoc.data();
+                if (d.role === "admin") continue;
+                await updateDoc(doc(db, "players", playerDoc.id), {
+                    eliminated: false,
+                    eliminatedBy: "",
+                    target: ""
+                });
+            }
+
+            loadPlayers();
+        }
 
         /* ---------------- WINNER CHECK ---------------- */
 
@@ -412,34 +407,68 @@
                     winner: winnerName,
                     roundActive: false
                 }, { merge: true });
-                alert(`${winnerName} has won the game!`);
             }
         }
 
-        /* ---------------- ELIMINATE / REVIVE MODAL ---------------- */
+        /* ---------------- GENERIC CONFIRM MODAL ---------------- */
 
-        window.openElimModal = function(playerId, playerName, playerTarget, isEliminated) {
-            modalPlayerId = playerId;
-            modalPlayerName = playerName;
-            modalPlayerTarget = playerTarget || "";
-            modalMode = isEliminated ? "revive" : "eliminate";
+        window.openConfirm = async function(actionName) {
+            pendingAction = actionName;
+            modalMode = "confirmAction";
 
             const modalBg = document.getElementById("modalBg");
             const title = document.getElementById("modalTitle");
             const bodyText = document.getElementById("modalBodyText");
             const killerInput = document.getElementById("killerInput");
 
-            if (modalMode === "eliminate") {
-                title.textContent = "Eliminate Player";
-                bodyText.textContent = `Who eliminated ${playerName}? (leave blank for Unknown)`;
-                killerInput.style.display = "block";
-                killerInput.value = "";
+            killerInput.style.display = "none";
+            killerInput.value = "";
+
+            if (actionName === "startRound") {
+                title.textContent = "Start round?";
+            } else if (actionName === "pauseRound") {
+                // need to know if currently paused or not
+                const stateRef = doc(db, "game", "state");
+                const snap = await getDoc(stateRef);
+                let currentPause = false;
+                if (snap.exists()) {
+                    const data = snap.data();
+                    currentPause = !!data.roundPause;
+                }
+                title.textContent = currentPause ? "Resume round?" : "Pause round?";
+            } else if (actionName === "stopRound") {
+                title.textContent = "Stop round?";
+            } else if (actionName === "resetElims") {
+                title.textContent = "Reset eliminations?";
+            } else if (actionName === "resetTargets") {
+                title.textContent = "Reset targets?";
+            } else if (actionName === "resetStatus") {
+                title.textContent = "Reset status?";
             } else {
-                title.textContent = "Revive Player";
-                bodyText.textContent = `Are you sure you want to revive ${playerName}?`;
-                killerInput.style.display = "none";
-                killerInput.value = "";
+                title.textContent = "Are you sure?";
             }
+
+            bodyText.textContent = "";
+            modalBg.style.display = "flex";
+        };
+
+        /* ---------------- ELIMINATE MODAL ---------------- */
+
+        window.openElimModal = function(playerId, playerName, playerTarget, isEliminated) {
+            modalPlayerId = playerId;
+            modalPlayerName = playerName;
+            modalPlayerTarget = playerTarget || "";
+            modalMode = "eliminate";
+
+            const modalBg = document.getElementById("modalBg");
+            const title = document.getElementById("modalTitle");
+            const bodyText = document.getElementById("modalBodyText");
+            const killerInput = document.getElementById("killerInput");
+
+            title.textContent = "Eliminate player?";
+            bodyText.textContent = `Who eliminated ${playerName}? (leave blank for Unknown)`;
+            killerInput.style.display = "block";
+            killerInput.value = "";
 
             modalBg.style.display = "flex";
         };
@@ -450,89 +479,87 @@
             modalPlayerId = null;
             modalPlayerName = null;
             modalPlayerTarget = null;
+            pendingAction = null;
         };
 
         window.confirmModal = async function() {
-            if (!modalPlayerId || !modalMode) {
+            if (modalMode === "confirmAction" && pendingAction) {
+                const action = pendingAction;
+                pendingAction = null;
+                document.getElementById("modalBg").style.display = "none";
+
+                if (action === "startRound") await doStartRound();
+                else if (action === "pauseRound") await doPauseRound();
+                else if (action === "stopRound") await doStopRound();
+                else if (action === "resetElims") await doResetElims();
+                else if (action === "resetTargets") await doResetTargets();
+                else if (action === "resetStatus") await doResetStatus();
+
+                return;
+            }
+
+            if (!modalPlayerId || modalMode !== "eliminate") {
                 closeModal();
                 return;
             }
 
-            if (modalMode === "eliminate") {
-                const killerInput = document.getElementById("killerInput");
-                let killerName = killerInput.value.trim();
+            const killerInput = document.getElementById("killerInput");
+            let killerName = killerInput.value.trim();
 
-                // empty -> Unknown (no killer logic)
-                let killerDocId = null;
-                let killerData = null;
+            let killerDocId = null;
+            let killerData = null;
 
-                if (killerName === "") {
-                    killerName = "Unknown";
-                } else {
-                    // validate killer exists and is not admin and not eliminated
-                    const snapshot = await getDocs(collection(db, "players"));
-                    snapshot.forEach(docSnap => {
-                        const d = docSnap.data();
-                        if (d.username === killerName) {
-                            killerDocId = docSnap.id;
-                            killerData = d;
-                        }
-                    });
-
-                    if (!killerDocId) {
-                        alert(`No player named "${killerName}" exists.`);
-                        return;
+            if (killerName === "") {
+                killerName = "Unknown";
+            } else {
+                const snapshot = await getDocs(collection(db, "players"));
+                snapshot.forEach(docSnap => {
+                    const d = docSnap.data();
+                    if (d.username === killerName) {
+                        killerDocId = docSnap.id;
+                        killerData = d;
                     }
+                });
 
-                    if (killerData.role === "admin" || killerData.eliminated) {
-                        alert(`"${killerName}" cannot eliminate players.`);
-                        return;
-                    }
+                if (!killerDocId) {
+                    alert(`No player named "${killerName}" exists.`);
+                    return;
                 }
 
-                // mark victim eliminated
-                await updateDoc(doc(db, "players", modalPlayerId), {
-                    eliminated: true,
-                    eliminatedBy: killerName
-                });
-
-                // killer logic only if known player (not Unknown)
-                if (killerName !== "Unknown" && killerDocId) {
-                    const killerRef = doc(db, "players", killerDocId);
-                    const killerSnap = await getDoc(killerRef);
-                    if (killerSnap.exists()) {
-                        const kd = killerSnap.data();
-                        const newElims = (kd.elims || 0) + 1;
-
-                        const updateData = { elims: newElims };
-
-                        // A gets B's target (C)
-                        const victimTarget = modalPlayerTarget || "";
-                        if (victimTarget && victimTarget !== modalPlayerName) {
-                            updateData.target = victimTarget;
-                        }
-
-                        await updateDoc(killerRef, updateData);
-                    }
+                if (killerData.role === "admin" || killerData.eliminated) {
+                    alert(`"${killerName}" cannot eliminate players.`);
+                    return;
                 }
-
-                // remove victim from loop: clear their target
-                await updateDoc(doc(db, "players", modalPlayerId), {
-                    target: ""
-                });
-
-                await checkWinner();
-
-                alert(`${modalPlayerName} has been eliminated.`);
-            } else if (modalMode === "revive") {
-                await updateDoc(doc(db, "players", modalPlayerId), {
-                    eliminated: false,
-                    eliminatedBy: "",
-                    target: ""
-                });
-
-                alert(`${modalPlayerName} has been revived.`);
             }
+
+            await updateDoc(doc(db, "players", modalPlayerId), {
+                eliminated: true,
+                eliminatedBy: killerName
+            });
+
+            if (killerName !== "Unknown" && killerDocId) {
+                const killerRef = doc(db, "players", killerDocId);
+                const killerSnap = await getDoc(killerRef);
+                if (killerSnap.exists()) {
+                    const kd = killerSnap.data();
+                    const newElims = (kd.elims || 0) + 1;
+
+                    const updateData = { elims: newElims };
+
+                    const victimTarget = modalPlayerTarget || "";
+                    if (victimTarget && victimTarget !== modalPlayerName) {
+                        updateData.target = victimTarget;
+                    }
+
+                    await updateDoc(killerRef, updateData);
+                }
+            }
+
+            await updateDoc(doc(db, "players", modalPlayerId), {
+                target: ""
+            });
+
+            await checkWinner();
 
             closeModal();
             loadPlayers();
