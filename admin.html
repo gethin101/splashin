@@ -106,17 +106,6 @@
         .action-btn:hover {
             background: #c62828;
         }
-
-        @media (max-width: 700px) {
-            th, td {
-                font-size: 15px;
-                padding: 10px;
-            }
-
-            button {
-                font-size: 16px;
-            }
-        }
     </style>
 </head>
 
@@ -175,12 +164,13 @@
 
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { 
-            getFirestore, collection, getDocs, doc, updateDoc 
+            getFirestore, collection, getDocs, doc, updateDoc, setDoc 
         } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
+        /* ---------------- LOAD PLAYERS ---------------- */
         async function loadPlayers() {
             const table = document.getElementById("playersTable");
             const snapshot = await getDocs(collection(db, "players"));
@@ -200,7 +190,7 @@
                     </td>
                     <td>${p.elims}</td>
                     <td>
-                        <button class="action-btn" onclick="markEliminated('${playerDoc.id}')">Eliminate</button>
+                        <button class="action-btn" onclick="markEliminated('${playerDoc.id}', '${p.username}')">Eliminate</button>
                     </td>
                 `;
 
@@ -208,55 +198,71 @@
             });
         }
 
-        async function markEliminated(id) {
+        /* ---------------- MARK PLAYER ELIMINATED ---------------- */
+        async function markEliminated(id, username) {
             await updateDoc(doc(db, "players", id), {
-                eliminated: true
+                eliminated: true,
+                eliminatedBy: "Admin"
             });
-            alert("Player marked as eliminated.");
+
+            alert(username + " has been eliminated.");
             location.reload();
         }
 
+        /* ---------------- START ROUND ---------------- */
         async function startRound() {
-            await updateDoc(doc(db, "game", "state"), {
+            await setDoc(doc(db, "game", "state"), {
                 roundActive: true
-            });
+            }, { merge: true });
+
             alert("Round started!");
         }
 
+        /* ---------------- STOP ROUND ---------------- */
         async function stopRound() {
-            await updateDoc(doc(db, "game", "state"), {
+            await setDoc(doc(db, "game", "state"), {
                 roundActive: false
-            });
+            }, { merge: true });
+
             alert("Round stopped!");
         }
 
+        /* ---------------- RESET GAME ---------------- */
         async function resetGame() {
             const snapshot = await getDocs(collection(db, "players"));
-            snapshot.forEach(async playerDoc => {
+
+            for (const playerDoc of snapshot.docs) {
                 await updateDoc(doc(db, "players", playerDoc.id), {
                     eliminated: false,
                     elims: 0,
                     target: "",
                     eliminatedBy: ""
                 });
-            });
+            }
 
-            await updateDoc(doc(db, "game", "state"), {
+            await setDoc(doc(db, "game", "state"), {
                 roundActive: false,
                 winner: ""
-            });
+            }, { merge: true });
 
             alert("Game reset!");
             location.reload();
         }
 
+        /* ---------------- ASSIGN TARGETS ---------------- */
         async function assignTargets() {
             const snapshot = await getDocs(collection(db, "players"));
             const players = [];
 
-            snapshot.forEach(doc => {
-                players.push({ id: doc.id, ...doc.data() });
+            snapshot.forEach(docSnap => {
+                const d = docSnap.data();
+                if (d.role !== "admin") players.push({ id: docSnap.id, ...d });
             });
+
+            if (players.length < 2) {
+                alert("Not enough players.");
+                return;
+            }
 
             players.sort(() => Math.random() - 0.5);
 
