@@ -12,3 +12,4 @@ Everything will be automated and random so nobody can cheat and so everyone can 
 
 
 <img src="assets/player_1.png" alt="" width="800">
+<img src="assets/admin_1.png" alt="" width="700">
