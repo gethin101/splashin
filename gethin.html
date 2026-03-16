@@ -548,7 +548,10 @@
 
             closeModal();
         };
-          loadPlayers();
+          onSnapshot(collection(db, "players"), () => {
+    loadPlayers();
+});
+
     </script>
 
   </body>
