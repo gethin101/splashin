@@ -1,598 +1,177 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Player Dashboard</title>
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            font-family: Arial, sans-serif;
-            background: #0f0f0f;
-            color: white;
-        }
+<meta charset="UTF-8">
+<title>Player Dashboard</title>
 
-        .header {
-            text-align: center;
-            padding: 25px 10px;
-            font-size: 34px;
-            font-weight: 800;
-        }
-
-        .winner-banner {
-            text-align: center;
-            padding: 15px 10px;
-            font-size: 22px;
-            font-weight: 800;
-            display: none;
-        }
-
-        .winner-self {
-            background: #4caf50;
-            color: white;
-        }
-
-        .winner-other {
-            background: #ff9800;
-            color: black;
-        }
-
-        .layout {
-            display: grid;
-            grid-template-columns: 260px 1fr 260px;
-            gap: 25px;
-            padding: 20px;
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-
-        .left-box { grid-column: 1; }
-        .center-box { grid-column: 2; }
-        .right-box { grid-column: 3; }
-
-        .side-box {
-            background: #1a1a1a;
-            padding: 25px;
-            min-height: 650px;
-            border-radius: 14px;
-            box-shadow: 0 6px 30px rgba(0,0,0,0.4);
-        }
-
-        .side-title {
-            font-size: 24px;
-            font-weight: 700;
-            margin-bottom: 20px;
-            text-align: center;
-        }
-
-        .side-info {
-            font-size: 20px;
-            margin: 15px 0;
-        }
-
-        .leaderboard {
-            margin-top: 25px;
-        }
-
-        .leaderboard-title {
-            font-size: 22px;
-            font-weight: 700;
-            margin-bottom: 15px;
-            text-align: center;
-        }
-
-        .leaderboard-item {
-            padding: 10px;
-            margin-bottom: 8px;
-            border-radius: 8px;
-            background: #2a2a2a;
-            font-size: 18px;
-        }
-
-        .gold {
-            background: #d4af37;
-            color: black;
-            font-weight: 700;
-        }
-
-        .silver {
-            background: #c0c0c0;
-            color: black;
-            font-weight: 700;
-        }
-
-        .bronze {
-            background: #cd7f32;
-            color: black;
-            font-weight: 700;
-        }
-
-        .admin-row {
-            background: #444;
-            padding: 10px;
-            border-radius: 8px;
-            margin-top: 15px;
-            font-size: 18px;
-            text-align: center;
-        }
-
-        .center-box {
-            background: #1a1a1a;
-            padding: 30px;
-            border-radius: 14px;
-            text-align: center;
-            box-shadow: 0 6px 30px rgba(0,0,0,0.4);
-            min-height: 650px;
-        }
-
-        .profile-box {
-            width: 100%;
-            max-width: 300px;
-            height: 300px;
-            background: #2a2a2a;
-            border-radius: 12px;
-            margin: 0 auto 30px auto;
-            overflow: hidden;
-        }
-
-        .profile-box img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-
-        .target-btn {
-            width: 100%;
-            padding: 20px;
-            background: #4a6cf7;
-            border: none;
-            border-radius: 12px;
-            font-size: 24px;
-            font-weight: 700;
-            color: white;
-            cursor: pointer;
-            margin-bottom: 25px;
-        }
-
-        .target-display {
-            margin-top: 20px;
-            padding: 30px;
-            background: #2a2a2a;
-            border-radius: 12px;
-            font-size: 28px;
-            font-weight: 700;
-            display: none;
-            min-height: 180px;
-        }
-
-        .elim-btn {
-            margin-top: 25px;
-            padding: 18px;
-            width: 90%;
-            background: #4a6cf7;
-            border: none;
-            border-radius: 10px;
-            font-size: 22px;
-            font-weight: 700;
-            color: white;
-            cursor: pointer;
-            display: none;
-        }
-
-        .badge {
-            padding: 8px 12px;
-            border-radius: 8px;
-            font-size: 18px;
-            color: white;
-            display: inline-block;
-            margin-top: 5px;
-        }
-
-        .alive { background: #4caf50; }
-        .dead { background: #e53935; }
-        .active { background: #4a6cf7; }
-        .inactive { background: #777; }
-
-        .time-box {
-            margin-top: 10px;
-            padding: 15px;
-            background: #2a2a2a;
-            border-radius: 10px;
-            text-align: center;
-            font-size: 20px;
-        }
-
-        .elim-by-box {
-            background: #e53935;
-            padding: 15px;
-            border-radius: 10px;
-            margin-top: 15px;
-            font-size: 18px;
-            font-weight: 700;
-            text-align: center;
-            display: none;
-        }
-
-        .modal-bg {
-            position: fixed;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            background: rgba(0,0,0,0.7);
-            display: none;
-            justify-content: center;
-            align-items: center;
-        }
-
-        .modal-box {
-            background: #1a1a1a;
-            padding: 30px;
-            width: 90%;
-            max-width: 400px;
-            border-radius: 14px;
-            text-align: center;
-        }
-
-        .modal-btn {
-            padding: 15px 25px;
-            border: none;
-            border-radius: 10px;
-            font-size: 20px;
-            font-weight: 700;
-            cursor: pointer;
-            margin: 10px;
-        }
-
-        .yes-btn {
-            background: #4caf50;
-            color: white;
-        }
-
-        .no-btn {
-            background: #e53935;
-            color: white;
-        }
-
-        @media (max-width: 900px) {
-            .layout {
-                grid-template-columns: 1fr 1fr;
-                grid-template-rows: auto auto;
-                grid-template-areas:
-                    "left right"
-                    "center center";
-            }
-            .left-box { grid-area: left; }
-            .right-box { grid-area: right; }
-            .center-box { grid-area: center; width: 100%; }
-        }
-
-        @media (max-width: 600px) {
-            .layout {
-                grid-template-columns: 1fr;
-                grid-template-areas:
-                    "left"
-                    "right"
-                    "center";
-            }
-            .side-box { min-height: auto; }
-            .center-box { min-height: auto; }
-        }
-    </style>
+<style>
+body{margin:0;font-family:Arial;background:#0f0f0f;color:white}
+.header{text-align:center;padding:25px;font-size:34px;font-weight:800}
+.pauseBanner{display:none;background:#ff9800;color:black;text-align:center;padding:14px;font-size:22px;font-weight:700}
+.center{max-width:600px;margin:auto;padding:20px;text-align:center}
+button{padding:20px;border:none;border-radius:12px;font-size:22px;font-weight:700;cursor:pointer}
+.target-btn{background:#4a6cf7;color:white;width:100%;margin-bottom:20px}
+.elim-btn{background:#4a6cf7;color:white;width:100%;display:none}
+.target-box{background:#2a2a2a;padding:30px;border-radius:12px;display:none;font-size:26px}
+</style>
 </head>
+
 <body>
-    <div class="header" id="headerName">Player Dashboard</div>
-    <div class="winner-banner" id="winnerBanner"></div>
 
-    <div class="layout">
-        <div class="side-box left-box">
-            <div class="side-title">Player Info</div>
-            <p class="side-info"><strong>Username:</strong> <span id="username">Loading...</span></p>
-            <p class="side-info"><strong>Eliminations:</strong> <span id="elims">0</span></p>
+<div class="header" id="headerName">Player Dashboard</div>
 
-            <div class="leaderboard">
-                <div class="leaderboard-title">Elimination Leaderboard</div>
-                <div id="leaderboardList"></div>
-                <div class="admin-row">Admin: N/A</div>
-            </div>
-        </div>
+<div id="pauseBanner" class="pauseBanner">
+GAME PAUSED
+</div>
 
-        <div class="center-box">
-            <div class="profile-box">
-                <img src="assets/profile.png" alt="Profile">
-            </div>
+<div class="center">
 
-            <button id="targetBtn" class="target-btn" onclick="toggleTarget()">Reveal Target</button>
+<button id="targetBtn" class="target-btn" onclick="toggleTarget()">
+Reveal Target
+</button>
 
-            <div id="targetDisplay" class="target-display">
-                Target: Loading...
-                <button id="elimBtn" class="elim-btn" onclick="openModal()">Eliminated Target</button>
-            </div>
-        </div>
+<div id="targetDisplay" class="target-box">
 
-        <div class="side-box right-box">
-            <div class="side-title">Game Status</div>
+<span id="targetName">Loading...</span>
 
-            <p class="side-info">
-                <strong>Round:</strong>
-                <span id="roundBadge" class="badge">Loading...</span>
-            </p>
+<br><br>
 
-            <div class="time-box" id="timeBox">Time: --:--:--</div>
+<button id="elimBtn" class="elim-btn" onclick="confirmElimination()">
+Eliminated Target
+</button>
 
-            <p class="side-info">
-                <strong>Status:</strong>
-                <span id="statusBadge" class="badge">Loading...</span>
-            </p>
+</div>
 
-            <div id="eliminatedByBox" class="elim-by-box">
-                You were eliminated by Unknown
-            </div>
-        </div>
-    </div>
+</div>
 
-    <div class="modal-bg" id="modalBg">
-        <div class="modal-box">
-            <div id="modalText" style="font-size:22px; margin-bottom:20px;">Are you sure?</div>
-            <button class="modal-btn no-btn" onclick="closeModal()">No</button>
-            <button class="modal-btn yes-btn" onclick="confirmElimination()">Yes</button>
-        </div>
-    </div>
+<script type="module">
 
-    <script type="module">
-        const firebaseConfig = {
-          apiKey: "AIzaSyBYNiqTUUJtRHLM-9KWcRkRWxvbgo1JL8M",
-          authDomain: "splashin-game.firebaseapp.com",
-          projectId: "splashin-game",
-          storageBucket: "splashin-game.appspot.com",
-          messagingSenderId: "288041679813",
-          appId: "1:288041679813:web:381e2b17ff1a3779b829ac"
-        };
+const firebaseConfig={
+apiKey: "AIzaSyBYNiqTUUJtRHLM-9KWcRkRWxvbgo1JL8M",
+authDomain:"splashin-game.firebaseapp.com",
+projectId:"splashin-game",
+storageBucket:"splashin-game.appspot.com",
+messagingSenderId:"288041679813",
+appId:"1:288041679813:web:381e2b17ff1a3779b829ac"
+}
 
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getFirestore, doc, getDoc, collection, getDocs, updateDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import{initializeApp}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js"
+import{getFirestore,doc,getDoc,updateDoc,collection,getDocs,onSnapshot}
+from"https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js"
 
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
+const app=initializeApp(firebaseConfig)
+const db=getFirestore(app)
 
-        const playerId = localStorage.getItem("playerId");
-        if (!playerId) window.location.href = "index.html";
+const playerId=localStorage.getItem("playerId")
+if(!playerId)location.href="index.html"
 
-        let currentTargetName = "";
-        let currentPlayerData = null;
-        let currentGameData = null;
+let playerData=null
+let gameData=null
+let targetName=""
 
-        async function loadPlayer() {
-            const playerRef = doc(db, "players", playerId);
-            const playerSnap = await getDoc(playerRef);
-            const gameRef = doc(db, "game", "state");
-            const gameSnap = await getDoc(gameRef);
+async function loadPlayer(){
 
-            if (!playerSnap.exists()) return;
+const playerSnap=await getDoc(doc(db,"players",playerId))
+const gameSnap=await getDoc(doc(db,"game","state"))
 
-            const p = playerSnap.data();
-            const g = gameSnap.exists() ? gameSnap.data() : {};
+if(!playerSnap.exists())return
 
-            currentPlayerData = p;
-            currentGameData = g;
+playerData=playerSnap.data()
+gameData=gameSnap.exists()?gameSnap.data():{}
 
-            document.getElementById("username").textContent = p.username;
-            document.getElementById("headerName").textContent = p.username + " Dashboard";
-            document.getElementById("elims").textContent = p.elims;
+document.getElementById("headerName").textContent=playerData.username
 
-            currentTargetName = p.target || "";
-            const targetDisplay = document.getElementById("targetDisplay");
-            targetDisplay.childNodes[0].textContent = "Target: " + (currentTargetName || "Not assigned yet");
+targetName=playerData.target||""
 
-            const statusBadge = document.getElementById("statusBadge");
-            const eliminatedByBox = document.getElementById("eliminatedByBox");
+document.getElementById("targetName").textContent="Target: "+(targetName||"None")
 
-            if (p.eliminated) {
-                statusBadge.textContent = "Eliminated";
-                statusBadge.className = "badge dead";
-                eliminatedByBox.style.display = "block";
-                eliminatedByBox.textContent = "You were eliminated by " + (p.eliminatedBy || "Unknown");
-            } else {
-                statusBadge.textContent = "Alive";
-                statusBadge.className = "badge alive";
-                eliminatedByBox.style.display = "none";
-            }
+const pauseBanner=document.getElementById("pauseBanner")
 
-            const roundBadge = document.getElementById("roundBadge");
-            const roundActive = !!g.roundActive;
-            const roundPause = !!g.roundPause;
+if(gameData.roundPause){
+pauseBanner.style.display="block"
+}else{
+pauseBanner.style.display="none"
+}
 
-            if (roundActive) {
-                roundBadge.textContent = roundPause ? "Paused" : "Active";
-                roundBadge.className = "badge active";
-            } else {
-                roundBadge.textContent = "Not Active";
-                roundBadge.className = "badge inactive";
-            }
+}
 
-            const winnerBanner = document.getElementById("winnerBanner");
-            if (g.winner && g.winner !== "") {
-                if (g.winner === p.username) {
-                    winnerBanner.textContent = "YOU WON THE GAME!";
-                    winnerBanner.className = "winner-banner winner-self";
-                } else {
-                    winnerBanner.textContent = g.winner + " has won the game!";
-                    winnerBanner.className = "winner-banner winner-other";
-                }
-                winnerBanner.style.display = "block";
-            } else {
-                winnerBanner.style.display = "none";
-            }
+window.toggleTarget=function(){
 
-            const elimBtn = document.getElementById("elimBtn");
-            if (p.eliminated || !roundActive || roundPause || !currentTargetName) {
-                elimBtn.style.display = "none";
-            }
-        }
+const box=document.getElementById("targetDisplay")
+const btn=document.getElementById("targetBtn")
+const elimBtn=document.getElementById("elimBtn")
 
-        async function loadLeaderboard() {
-            const list = document.getElementById("leaderboardList");
-            list.innerHTML = "";
-            const snapshot = await getDocs(collection(db, "players"));
-            const players = [];
+if(box.style.display==="none"||box.style.display===""){
 
-            snapshot.forEach(docSnap => {
-                const d = docSnap.data();
-                if (d.role !== "admin") {
-                    players.push({ username: d.username, elims: d.elims });
-                }
-            });
+box.style.display="block"
 
-            players.sort((a, b) => b.elims - a.elims);
+const canKill=
+playerData &&
+!playerData.eliminated &&
+gameData &&
+gameData.roundActive &&
+!gameData.roundPause &&
+targetName
 
-            players.forEach((p, i) => {
-                const div = document.createElement("div");
-                div.classList.add("leaderboard-item");
-                if (i === 0) div.classList.add("gold");
-                else if (i === 1) div.classList.add("silver");
-                else if (i === 2) div.classList.add("bronze");
-                div.textContent = `${p.username}: ${p.elims}`;
-                list.appendChild(div);
-            });
-        }
+if(canKill){
+elimBtn.style.display="block"
+elimBtn.textContent="Eliminated Target"
+}else if(gameData.roundPause){
+elimBtn.style.display="block"
+elimBtn.textContent="PAUSED"
+}
 
-        loadPlayer();
-        loadLeaderboard();
+btn.textContent="Hide Target"
 
-        window.toggleTarget = function () {
-            const box = document.getElementById("targetDisplay");
-            const btn = document.getElementById("targetBtn");
-            const elimBtn = document.getElementById("elimBtn");
+}else{
 
-            if (box.style.display === "none" || box.style.display === "") {
-                box.style.display = "block";
+box.style.display="none"
+elimBtn.style.display="none"
+btn.textContent="Reveal Target"
 
-                const canKill = currentPlayerData && !currentPlayerData.eliminated &&
-                                currentGameData && currentGameData.roundActive &&
-                                !currentGameData.roundPause &&
-                                currentTargetName;
-                elimBtn.style.display = canKill ? "block" : "none";
+}
 
-                btn.textContent = "Hide Target";
-                btn.style.background = "#e53935";
-            } else {
-                box.style.display = "none";
-                elimBtn.style.display = "none";
-                btn.textContent = "Reveal Target";
-                btn.style.background = "#4a6cf7";
-            }
-        };
+}
 
-        window.openModal = function () {
-            if (!currentPlayerData || !currentGameData) return;
+window.confirmElimination=async function(){
 
-            if (currentPlayerData.eliminated) return;
-            if (!currentGameData.roundActive || currentGameData.roundPause) return;
-            if (!currentTargetName) return;
+if(!targetName)return
+if(gameData.roundPause)return
 
-            document.getElementById("modalText").textContent =
-                `Are you sure you eliminated ${currentTargetName}?`;
-            document.getElementById("modalBg").style.display = "flex";
-        };
+const snapshot=await getDocs(collection(db,"players"))
 
-        window.closeModal = function () {
-            document.getElementById("modalBg").style.display = "none";
-        };
+let victimId=null
+let victimData=null
 
-        async function checkWinner() {
-            const snapshot = await getDocs(collection(db, "players"));
-            const alive = [];
+snapshot.forEach(docSnap=>{
+const d=docSnap.data()
+if(d.username===targetName){
+victimId=docSnap.id
+victimData=d
+}
+})
 
-            snapshot.forEach(docSnap => {
-                const d = docSnap.data();
-                if (d.role !== "admin" && !d.eliminated) alive.push(d.username);
-            });
+if(!victimId)return
 
-            if (alive.length === 1) {
-                await setDoc(doc(db, "game", "state"), {
-                    winner: alive[0],
-                    roundActive: false
-                }, { merge: true });
-            }
-        }
+await updateDoc(doc(db,"players",victimId),{
+eliminated:true,
+eliminatedBy:playerData.username,
+target:""
+})
 
-        window.confirmElimination = async function () {
-            if (!currentTargetName || !currentPlayerData || !currentGameData) {
-                document.getElementById("modalBg").style.display = "none";
-                return;
-            }
+const newTarget=victimData.target||""
 
-            if (currentPlayerData.eliminated) {
-                document.getElementById("modalBg").style.display = "none";
-                return;
-            }
+await updateDoc(doc(db,"players",playerId),{
+elims:(playerData.elims||0)+1,
+target:newTarget
+})
 
-            if (!currentGameData.roundActive || currentGameData.roundPause) {
-                document.getElementById("modalBg").style.display = "none";
-                return;
-            }
+}
 
-            const snapshot = await getDocs(collection(db, "players"));
+onSnapshot(doc(db,"players",playerId),()=>{loadPlayer()})
+onSnapshot(doc(db,"game","state"),()=>{loadPlayer()})
 
-            let victimDocId = null;
-            let victimData = null;
+</script>
 
-            snapshot.forEach(docSnap => {
-                const d = docSnap.data();
-                if (d.username === currentTargetName) {
-                    victimDocId = docSnap.id;
-                    victimData = d;
-                }
-            });
-
-            if (!victimDocId || !victimData) {
-                document.getElementById("modalBg").style.display = "none";
-                return;
-            }
-
-            await updateDoc(doc(db, "players", victimDocId), {
-                eliminated: true,
-                eliminatedBy: currentPlayerData.username
-            });
-
-            const victimTarget = victimData.target || "";
-            const playerRef = doc(db, "players", playerId);
-            const playerSnap = await getDoc(playerRef);
-            if (playerSnap.exists()) {
-                const pd = playerSnap.data();
-                                const newElims = (pd.elims || 0) + 1;
-                const updateData = { elims: newElims };
-
-                if (victimTarget && victimTarget !== currentPlayerData.username) {
-                    updateData.target = victimTarget;
-                    currentTargetName = victimTarget;
-                } else {
-                    updateData.target = "";
-                    currentTargetName = "";
-                }
-
-                await updateDoc(playerRef, updateData);
-            }
-
-            await updateDoc(doc(db, "players", victimDocId), {
-                target: ""
-            });
-
-            await checkWinner();
-
-            document.getElementById("modalBg").style.display = "none";
-
-            await loadPlayer();
-            await loadLeaderboard();
-        };
-
-        function updateTime() {
-            const now = new Date();
-            document.getElementById("timeBox").textContent =
-                "Time: " + now.toLocaleTimeString("en-GB", { hour12: false });
-        }
-
-        setInterval(updateTime, 1000);
-        updateTime();
-    </script>
 </body>
 </html>
