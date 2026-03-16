@@ -338,7 +338,7 @@
         </div>
     </div>
 
-  <script type="module">
+<script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { 
     getFirestore, doc, collection,
@@ -395,10 +395,15 @@ onSnapshot(doc(db, "players", playerId), (snap) => {
         eliminatedByBox.style.display = "none";
     }
 
-    updateElimButton();
+    // Only update elim button if target box is open
+    if (targetDisplay.style.display !== "none") {
+        updateElimButton();
+    }
 });
 
-
+/* ------------------------------
+   REAL‑TIME GAME STATE LISTENER
+--------------------------------*/
 onSnapshot(doc(db, "game", "state"), (snap) => {
     const g = snap.exists() ? snap.data() : {};
     currentGameData = g;
@@ -429,10 +434,15 @@ onSnapshot(doc(db, "game", "state"), (snap) => {
         winnerBanner.style.display = "none";
     }
 
-    updateElimButton();
+    // Only update elim button if target box is open
+    if (document.getElementById("targetDisplay").style.display !== "none") {
+        updateElimButton();
+    }
 });
 
-
+/* ------------------------------
+   REAL‑TIME LEADERBOARD LISTENER
+--------------------------------*/
 onSnapshot(collection(db, "players"), (snapshot) => {
     const list = document.getElementById("leaderboardList");
     list.innerHTML = "";
@@ -458,7 +468,9 @@ onSnapshot(collection(db, "players"), (snapshot) => {
     });
 });
 
-
+/* ------------------------------
+   UPDATE ELIM BUTTON
+--------------------------------*/
 function updateElimButton() {
     const elimBtn = document.getElementById("elimBtn");
 
@@ -472,6 +484,31 @@ function updateElimButton() {
 
     elimBtn.style.display = canKill ? "block" : "none";
 }
+
+/* ------------------------------
+   TOGGLE TARGET (OLD BEHAVIOUR)
+--------------------------------*/
+window.toggleTarget = function () {
+    const box = document.getElementById("targetDisplay");
+    const btn = document.getElementById("targetBtn");
+    const elimBtn = document.getElementById("elimBtn");
+
+    const isHidden = box.style.display === "none" || box.style.display === "";
+
+    if (isHidden) {
+        box.style.display = "block";
+        updateElimButton();
+
+        btn.textContent = "Hide Target";
+        btn.style.background = "#e53935";
+    } else {
+        box.style.display = "none";
+        elimBtn.style.display = "none";
+
+        btn.textContent = "Reveal Target";
+        btn.style.background = "#4a6cf7";
+    }
+};
 
 /* ------------------------------
    MODAL + ELIMINATION LOGIC
@@ -564,7 +601,9 @@ window.confirmElimination = async function () {
     document.getElementById("modalBg").style.display = "none";
 };
 
-
+/* ------------------------------
+   CLOCK
+--------------------------------*/
 function updateTime() {
     const now = new Date();
     document.getElementById("timeBox").textContent =
@@ -573,6 +612,7 @@ function updateTime() {
 setInterval(updateTime, 1000);
 updateTime();
 </script>
+
 
 </body>
 </html>
