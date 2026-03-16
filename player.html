@@ -338,261 +338,241 @@
         </div>
     </div>
 
-    <script type="module">
-        const firebaseConfig = {
-          apiKey: "AIzaSyBYNiqTUUJtRHLM-9KWcRkRWxvbgo1JL8M",
-          authDomain: "splashin-game.firebaseapp.com",
-          projectId: "splashin-game",
-          storageBucket: "splashin-game.appspot.com",
-          messagingSenderId: "288041679813",
-          appId: "1:288041679813:web:381e2b17ff1a3779b829ac"
-        };
+  <script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { 
+    getFirestore, doc, collection,
+    onSnapshot, updateDoc, setDoc, getDoc, getDocs
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getFirestore, doc, getDoc, collection, getDocs, updateDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+const firebaseConfig = {
+  apiKey: "AIzaSyBYNiqTUUJtRHLM-9KWcRkRWxvbgo1JL8M",
+  authDomain: "splashin-game.firebaseapp.com",
+  projectId: "splashin-game",
+  storageBucket: "splashin-game.appspot.com",
+  messagingSenderId: "288041679813",
+  appId: "1:288041679813:web:381e2b17ff1a3779b829ac"
+};
 
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
 
-        const playerId = localStorage.getItem("playerId");
-        if (!playerId) window.location.href = "index.html";
+const playerId = localStorage.getItem("playerId");
+if (!playerId) window.location.href = "index.html";
 
-        let currentTargetName = "";
-        let currentPlayerData = null;
-        let currentGameData = null;
+let currentPlayerData = null;
+let currentGameData = null;
+let currentTargetName = "";
 
-        async function loadPlayer() {
-            const playerRef = doc(db, "players", playerId);
-            const playerSnap = await getDoc(playerRef);
-            const gameRef = doc(db, "game", "state");
-            const gameSnap = await getDoc(gameRef);
+/* ------------------------------
+   REAL‑TIME PLAYER LISTENER
+--------------------------------*/
+onSnapshot(doc(db, "players", playerId), (snap) => {
+    if (!snap.exists()) return;
 
-            if (!playerSnap.exists()) return;
+    const p = snap.data();
+    currentPlayerData = p;
+    currentTargetName = p.target || "";
 
-            const p = playerSnap.data();
-            const g = gameSnap.exists() ? gameSnap.data() : {};
+    document.getElementById("username").textContent = p.username;
+    document.getElementById("headerName").textContent = p.username + " Dashboard";
+    document.getElementById("elims").textContent = p.elims;
 
-            currentPlayerData = p;
-            currentGameData = g;
+    const targetDisplay = document.getElementById("targetDisplay");
+    targetDisplay.childNodes[0].textContent = "Target: " + (currentTargetName || "Not assigned yet");
 
-            document.getElementById("username").textContent = p.username;
-            document.getElementById("headerName").textContent = p.username + " Dashboard";
-            document.getElementById("elims").textContent = p.elims;
+    const statusBadge = document.getElementById("statusBadge");
+    const eliminatedByBox = document.getElementById("eliminatedByBox");
 
-            currentTargetName = p.target || "";
-            const targetDisplay = document.getElementById("targetDisplay");
-            targetDisplay.childNodes[0].textContent = "Target: " + (currentTargetName || "Not assigned yet");
+    if (p.eliminated) {
+        statusBadge.textContent = "Eliminated";
+        statusBadge.className = "badge dead";
+        eliminatedByBox.style.display = "block";
+        eliminatedByBox.textContent = "You were eliminated by " + (p.eliminatedBy || "Unknown");
+    } else {
+        statusBadge.textContent = "Alive";
+        statusBadge.className = "badge alive";
+        eliminatedByBox.style.display = "none";
+    }
 
-            const statusBadge = document.getElementById("statusBadge");
-            const eliminatedByBox = document.getElementById("eliminatedByBox");
+    updateElimButton();
+});
 
-            if (p.eliminated) {
-                statusBadge.textContent = "Eliminated";
-                statusBadge.className = "badge dead";
-                eliminatedByBox.style.display = "block";
-                eliminatedByBox.textContent = "You were eliminated by " + (p.eliminatedBy || "Unknown");
-            } else {
-                statusBadge.textContent = "Alive";
-                statusBadge.className = "badge alive";
-                eliminatedByBox.style.display = "none";
-            }
 
-            const roundBadge = document.getElementById("roundBadge");
-            const roundActive = !!g.roundActive;
-            const roundPause = !!g.roundPause;
+onSnapshot(doc(db, "game", "state"), (snap) => {
+    const g = snap.exists() ? snap.data() : {};
+    currentGameData = g;
 
-            if (roundActive) {
-                roundBadge.textContent = roundPause ? "Paused" : "Active";
-                roundBadge.className = "badge active";
-            } else {
-                roundBadge.textContent = "Not Active";
-                roundBadge.className = "badge inactive";
-            }
+    const roundBadge = document.getElementById("roundBadge");
+    const roundActive = !!g.roundActive;
+    const roundPause = !!g.roundPause;
 
-            const winnerBanner = document.getElementById("winnerBanner");
-            if (g.winner && g.winner !== "") {
-                if (g.winner === p.username) {
-                    winnerBanner.textContent = "YOU WON THE GAME!";
-                    winnerBanner.className = "winner-banner winner-self";
-                } else {
-                    winnerBanner.textContent = g.winner + " has won the game!";
-                    winnerBanner.className = "winner-banner winner-other";
-                }
-                winnerBanner.style.display = "block";
-            } else {
-                winnerBanner.style.display = "none";
-            }
+    if (roundActive) {
+        roundBadge.textContent = roundPause ? "Paused" : "Active";
+        roundBadge.className = "badge active";
+    } else {
+        roundBadge.textContent = "Not Active";
+        roundBadge.className = "badge inactive";
+    }
 
-            const elimBtn = document.getElementById("elimBtn");
-            if (p.eliminated || !roundActive || roundPause || !currentTargetName) {
-                elimBtn.style.display = "none";
-            }
+    const winnerBanner = document.getElementById("winnerBanner");
+    if (g.winner) {
+        if (g.winner === currentPlayerData?.username) {
+            winnerBanner.textContent = "YOU WON THE GAME!";
+            winnerBanner.className = "winner-banner winner-self";
+        } else {
+            winnerBanner.textContent = g.winner + " has won the game!";
+            winnerBanner.className = "winner-banner winner-other";
+        }
+        winnerBanner.style.display = "block";
+    } else {
+        winnerBanner.style.display = "none";
+    }
+
+    updateElimButton();
+});
+
+
+onSnapshot(collection(db, "players"), (snapshot) => {
+    const list = document.getElementById("leaderboardList");
+    list.innerHTML = "";
+
+    const players = [];
+    snapshot.forEach(docSnap => {
+        const d = docSnap.data();
+        if (d.role !== "admin") {
+            players.push({ username: d.username, elims: d.elims });
+        }
+    });
+
+    players.sort((a, b) => b.elims - a.elims);
+
+    players.forEach((p, i) => {
+        const div = document.createElement("div");
+        div.classList.add("leaderboard-item");
+        if (i === 0) div.classList.add("gold");
+        else if (i === 1) div.classList.add("silver");
+        else if (i === 2) div.classList.add("bronze");
+        div.textContent = `${p.username}: ${p.elims}`;
+        list.appendChild(div);
+    });
+});
+
+
+function updateElimButton() {
+    const elimBtn = document.getElementById("elimBtn");
+
+    if (!currentPlayerData || !currentGameData) return;
+
+    const canKill =
+        !currentPlayerData.eliminated &&
+        currentGameData.roundActive &&
+        !currentGameData.roundPause &&
+        currentTargetName;
+
+    elimBtn.style.display = canKill ? "block" : "none";
+}
+
+/* ------------------------------
+   MODAL + ELIMINATION LOGIC
+--------------------------------*/
+window.openModal = function () {
+    if (!currentPlayerData || !currentGameData) return;
+    if (currentPlayerData.eliminated) return;
+    if (!currentGameData.roundActive || currentGameData.roundPause) return;
+    if (!currentTargetName) return;
+
+    document.getElementById("modalText").textContent =
+        `Are you sure you eliminated ${currentTargetName}?`;
+    document.getElementById("modalBg").style.display = "flex";
+};
+
+window.closeModal = function () {
+    document.getElementById("modalBg").style.display = "none";
+};
+
+async function checkWinner() {
+    const snapshot = await getDocs(collection(db, "players"));
+    const alive = [];
+
+    snapshot.forEach(docSnap => {
+        const d = docSnap.data();
+        if (d.role !== "admin" && !d.eliminated) alive.push(d.username);
+    });
+
+    if (alive.length === 1) {
+        await setDoc(doc(db, "game", "state"), {
+            winner: alive[0],
+            roundActive: false
+        }, { merge: true });
+    }
+}
+
+window.confirmElimination = async function () {
+    if (!currentTargetName || !currentPlayerData || !currentGameData) {
+        document.getElementById("modalBg").style.display = "none";
+        return;
+    }
+
+    const snapshot = await getDocs(collection(db, "players"));
+    let victimDocId = null;
+    let victimData = null;
+
+    snapshot.forEach(docSnap => {
+        const d = docSnap.data();
+        if (d.username === currentTargetName) {
+            victimDocId = docSnap.id;
+            victimData = d;
+        }
+    });
+
+    if (!victimDocId) {
+        document.getElementById("modalBg").style.display = "none";
+        return;
+    }
+
+    await updateDoc(doc(db, "players", victimDocId), {
+        eliminated: true,
+        eliminatedBy: currentPlayerData.username
+    });
+
+    const victimTarget = victimData.target || "";
+    const playerRef = doc(db, "players", playerId);
+    const playerSnap = await getDoc(playerRef);
+
+    if (playerSnap.exists()) {
+        const pd = playerSnap.data();
+        const newElims = (pd.elims || 0) + 1;
+
+        const updateData = { elims: newElims };
+
+        if (victimTarget && victimTarget !== currentPlayerData.username) {
+            updateData.target = victimTarget;
+            currentTargetName = victimTarget;
+        } else {
+            updateData.target = "";
+            currentTargetName = "";
         }
 
-        async function loadLeaderboard() {
-            const list = document.getElementById("leaderboardList");
-            list.innerHTML = "";
-            const snapshot = await getDocs(collection(db, "players"));
-            const players = [];
+        await updateDoc(playerRef, updateData);
+    }
 
-            snapshot.forEach(docSnap => {
-                const d = docSnap.data();
-                if (d.role !== "admin") {
-                    players.push({ username: d.username, elims: d.elims });
-                }
-            });
+    await updateDoc(doc(db, "players", victimDocId), { target: "" });
 
-            players.sort((a, b) => b.elims - a.elims);
+    await checkWinner();
 
-            players.forEach((p, i) => {
-                const div = document.createElement("div");
-                div.classList.add("leaderboard-item");
-                if (i === 0) div.classList.add("gold");
-                else if (i === 1) div.classList.add("silver");
-                else if (i === 2) div.classList.add("bronze");
-                div.textContent = `${p.username}: ${p.elims}`;
-                list.appendChild(div);
-            });
-        }
+    document.getElementById("modalBg").style.display = "none";
+};
 
-        loadPlayer();
-        loadLeaderboard();
 
-        window.toggleTarget = function () {
-            const box = document.getElementById("targetDisplay");
-            const btn = document.getElementById("targetBtn");
-            const elimBtn = document.getElementById("elimBtn");
+function updateTime() {
+    const now = new Date();
+    document.getElementById("timeBox").textContent =
+        "Time: " + now.toLocaleTimeString("en-GB", { hour12: false });
+}
+setInterval(updateTime, 1000);
+updateTime();
+</script>
 
-            if (box.style.display === "none" || box.style.display === "") {
-                box.style.display = "block";
-
-                const canKill = currentPlayerData && !currentPlayerData.eliminated &&
-                                currentGameData && currentGameData.roundActive &&
-                                !currentGameData.roundPause &&
-                                currentTargetName;
-                elimBtn.style.display = canKill ? "block" : "none";
-
-                btn.textContent = "Hide Target";
-                btn.style.background = "#e53935";
-            } else {
-                box.style.display = "none";
-                elimBtn.style.display = "none";
-                btn.textContent = "Reveal Target";
-                btn.style.background = "#4a6cf7";
-            }
-        };
-
-        window.openModal = function () {
-            if (!currentPlayerData || !currentGameData) return;
-
-            if (currentPlayerData.eliminated) return;
-            if (!currentGameData.roundActive || currentGameData.roundPause) return;
-            if (!currentTargetName) return;
-
-            document.getElementById("modalText").textContent =
-                `Are you sure you eliminated ${currentTargetName}?`;
-            document.getElementById("modalBg").style.display = "flex";
-        };
-
-        window.closeModal = function () {
-            document.getElementById("modalBg").style.display = "none";
-        };
-
-        async function checkWinner() {
-            const snapshot = await getDocs(collection(db, "players"));
-            const alive = [];
-
-            snapshot.forEach(docSnap => {
-                const d = docSnap.data();
-                if (d.role !== "admin" && !d.eliminated) alive.push(d.username);
-            });
-
-            if (alive.length === 1) {
-                await setDoc(doc(db, "game", "state"), {
-                    winner: alive[0],
-                    roundActive: false
-                }, { merge: true });
-            }
-        }
-
-        window.confirmElimination = async function () {
-            if (!currentTargetName || !currentPlayerData || !currentGameData) {
-                document.getElementById("modalBg").style.display = "none";
-                return;
-            }
-
-            if (currentPlayerData.eliminated) {
-                document.getElementById("modalBg").style.display = "none";
-                return;
-            }
-
-            if (!currentGameData.roundActive || currentGameData.roundPause) {
-                document.getElementById("modalBg").style.display = "none";
-                return;
-            }
-
-            const snapshot = await getDocs(collection(db, "players"));
-
-            let victimDocId = null;
-            let victimData = null;
-
-            snapshot.forEach(docSnap => {
-                const d = docSnap.data();
-                if (d.username === currentTargetName) {
-                    victimDocId = docSnap.id;
-                    victimData = d;
-                }
-            });
-
-            if (!victimDocId || !victimData) {
-                document.getElementById("modalBg").style.display = "none";
-                return;
-            }
-
-            await updateDoc(doc(db, "players", victimDocId), {
-                eliminated: true,
-                eliminatedBy: currentPlayerData.username
-            });
-
-            const victimTarget = victimData.target || "";
-            const playerRef = doc(db, "players", playerId);
-            const playerSnap = await getDoc(playerRef);
-            if (playerSnap.exists()) {
-                const pd = playerSnap.data();
-                                const newElims = (pd.elims || 0) + 1;
-                const updateData = { elims: newElims };
-
-                if (victimTarget && victimTarget !== currentPlayerData.username) {
-                    updateData.target = victimTarget;
-                    currentTargetName = victimTarget;
-                } else {
-                    updateData.target = "";
-                    currentTargetName = "";
-                }
-
-                await updateDoc(playerRef, updateData);
-            }
-
-            await updateDoc(doc(db, "players", victimDocId), {
-                target: ""
-            });
-
-            await checkWinner();
-
-            document.getElementById("modalBg").style.display = "none";
-
-            await loadPlayer();
-            await loadLeaderboard();
-        };
-
-        function updateTime() {
-            const now = new Date();
-            document.getElementById("timeBox").textContent =
-                "Time: " + now.toLocaleTimeString("en-GB", { hour12: false });
-        }
-
-        setInterval(updateTime, 1000);
-        updateTime();
-    </script>
 </body>
 </html>
